@@ -1,0 +1,23 @@
+template <typename T:(Hashable)>
+class container {
+    public:
+        val: T;
+
+    public:
+        <typename U:(Any)>
+        fn process(input: U) -> int {
+            return 0;
+        }
+}
+
+class integer{
+	public:
+		__traits__: CompileTimeConst = ["Integral"];
+	private:
+		x: long;
+}
+
+fn main() -> int{
+	value: container = [1,2];
+	return 0;
+}

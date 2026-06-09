@@ -1,0 +1,24 @@
+{
+    "std::int8_t": ["cstdint", true],
+    "std::int16_t": ["cstdint", true],
+    "std::int32_t": ["cstdint", true],
+    "std::int64_t": ["cstdint", true],
+    "std::uint8_t": ["cstdint", true],
+    "std::uint16_t": ["cstdint", true],
+    "std::uint32_t": ["cstdint", true],
+    "std::uint64_t": ["cstdint", true],
+
+    "std::string": ["string", true],
+
+    "std::pow": ["cmath", true],
+    "std::sqrt": ["cmath", true],
+
+    "std::vector": ["vector", true],
+
+    "std::cout": ["iostream", true],
+    "std::endl": ["iostream", true],
+    "print": ["abct/AbcTIO.hpp", true],
+    "input": ["abct/AbcTIO.hpp", true],
+    "File": ["abct/AbcTFS.hpp", true],
+    "CompileTimeConst": ["abct/AbcTTypes.h", true]
+}

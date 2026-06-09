@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# /usr/bin/tpm
+import sys
+import argparse
+
+# Inject the exact directory layout from your system dump
+sys.path.append("/usr/lib/abct/abct/modules")
+import _tpm  # Matches your exact filename: _tpm.py
+
+def main():
+    parser = argparse.ArgumentParser(description="Timber Package Manager (tpm)")
+    parser.add_argument("action", choices=["install"], help="Action execution pass")
+    parser.add_argument("url", help="Target GitHub repository link")
+    
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--global", dest="is_global", action="store_true")
+    group.add_argument("--global-version-specific", dest="is_version_spec", action="store_true")
+
+    args = parser.parse_args()
+
+    print(f"[*] Dispatching core deployment engine via _tpm configuration...")
+    
+    try:
+        installed_path = _tpm.run_installation_pipeline(
+            url=args.url, 
+            is_version_specific=args.is_version_spec
+        )
+        print(f"[✓] Complete. Package integrated smoothly at: {installed_path}")
+        
+    except PermissionError as pe:
+        print(f"[-] Permission Fault: {pe}", file=sys.stderr)
+        print(f"    Please execute command utilizing: sudo tpm ...", file=sys.stderr)
+        sys.exit(1)
+        
+    except Exception as e:
+        print(f"[-] Toolchain Pipeline Failure: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

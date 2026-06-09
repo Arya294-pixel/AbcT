@@ -1,0 +1,14 @@
+# Path variables
+prefix=/home/arya/abct
+includedir=${prefix}/headers
+# If you compile a static or dynamic library later, it will likely go here:
+libdir=${prefix}
+
+# Metadata
+Name: abct
+Description: Timber is a transpiler to C++ under developemnt
+Version: 0.0.1
+
+# Compiler and Linker flags
+Cflags: -I${includedir}
+# Libs: -L${libdir} -labct

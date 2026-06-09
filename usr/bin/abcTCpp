@@ -1,0 +1,6 @@
+#!/bin/bash
+# Prepend the isolated package directory to Python's module lookup vector paths
+export PYTHONPATH="/usr/lib/abct:$PYTHONPATH"
+
+# Run the raw Python transpiler backend engine and pass all user arguments
+exec python3 -m abct.compiler.cpp.compiler "$@"
