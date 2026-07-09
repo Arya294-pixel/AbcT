@@ -35,7 +35,7 @@ class CAndCppCommonExpr(ABC):
         return {"Eq":"==","NotEq":"!=","Lt":"<","LtE":"<=","Gt":">","GtE":">="}[op]
 
     def unary_op(self, op: str) -> str:
-        return {"UAdd":"+","USub":"-","Not":"!","Invert":"~"}[op]
+        return {"UAdd":"+","USub":"-","Not":"!","Invert":"~"}.get(op, op)
 
     def emit_call(self, func: Node, args: list) -> str:
         args_s = ", ".join(self.emit_expr(a) for a in args)

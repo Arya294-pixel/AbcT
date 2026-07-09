@@ -7,10 +7,11 @@ class TokenType(Enum):
     FN = auto(); IF = auto(); ELIF = auto(); ELSE = auto(); WHILE = auto()
     DO = auto(); ITER = auto(); RETURN = auto(); PASS = auto(); BREAK = auto()
     CONTINUE = auto(); TRUE = auto(); FALSE = auto()
-    IMPORT = auto();
+    IMPORT = auto(); INCLUDE = auto();
     CLASS = auto();
     PRIVATE = auto(); PUBLIC = auto()
     TEMPLATE = auto(); TYPENAME = auto()
+    READONLY = auto()
 
     # Literals & Identifiers
     NAME = auto(); NUMBER = auto(); STRING = auto()
@@ -52,9 +53,11 @@ class Lexer:
         "break": TokenType.BREAK, "continue": TokenType.CONTINUE,
         "true": TokenType.TRUE, "True": TokenType.TRUE,
         "false": TokenType.FALSE, "False": TokenType.FALSE,
-        "import": TokenType.IMPORT, "class":TokenType.CLASS,
-        "private": TokenType.PRIVATE, "public": TokenType.PUBLIC,
+        "import": TokenType.IMPORT, "include": TokenType.INCLUDE,
+        "class":TokenType.CLASS, "private": TokenType.PRIVATE, "public": TokenType.PUBLIC,
         "template":TokenType.TEMPLATE, "typename":TokenType.TYPENAME,
+        "not":TokenType.NOT, "and": TokenType.AND, "or": TokenType.OR,
+        "readonly": TokenType.READONLY, "const": TokenType.READONLY,
     }
 
     def __init__(self, source: str):
@@ -127,15 +130,9 @@ class Lexer:
 
             if char == '&':
                 self.advance()
-                if self.peek() == '&':
-                    self.advance()
-                    return self.make_token(TokenType.AND, "&&")
-                return self.make_token(TokenType.AMPERSTAND, "&&")
+                return self.make_token(TokenType.AMPERSTAND, "&")
             if char == '|':
                 self.advance()
-                if self.peek() == '|':
-                    self.advance()
-                    return self.make_token(TokenType.OR, "||")
                 raise SyntaxError(f"Unexpected character '|' at line {self.line}")
 
             if char == '-':
@@ -183,8 +180,25 @@ class Lexer:
             # Numbers
             if char.isdigit():
                 start = self.position
-                while self.peek().isdigit() or self.peek() == '.':
-                    self.advance()
+                peek_char = self.source[start + 1] if start + 1 < self.length else ""
+                if char == "0" and peek_char.lower() in ("x", "o", "b"):
+                    self.advance() # consume 0
+                    self.advance() # consume literal prefix (x, b, o)
+                    prefix = peek_char.lower()
+                    if prefix == "x":
+                        valid_char = "0123456789abcdefABCDEF"
+                    elif prefix == "b":
+                        valid_char = "01"
+                    elif prefix == "o":
+                        valid_char = "01234567"
+                    if self.peek() in valid_char:
+                        while self.peek() in valid_char:
+                            self.advance()
+                    else:
+                        raise SyntaxError("0{peek_char} is invalid literal. you must use 0{peek_char}[{valid_char}]+")
+                else:
+                    while self.peek().isdigit() or self.peek() in ('.','e','E'):
+                        self.advance()
                 num_str = self.source[start:self.position]
                 return self.make_token(TokenType.NUMBER, num_str)
 

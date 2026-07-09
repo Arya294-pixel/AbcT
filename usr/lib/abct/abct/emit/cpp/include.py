@@ -28,12 +28,12 @@ SYSTEM_HEADER_MAP = {
 
 # Core internal headers that the compiler provides
 CORE_HEADER_MAP = {
-    "CompileTimeConst": ("abct/AbcTTypes.h", False),
+    "CompileTimeConst": ("abct/AbcTTypes.hpp", False),
 }
 
 USER_HEADER_MAP = {
-    "print": ("TimIO.hpp", False),
-    "input": ("TimIO.hpp", False),
+    "print": ("AbcTIO.hpp", False),
+    "input": ("AbcTIO.hpp", False),
 }
 
 # 2. Load user/project headers from JSON
@@ -57,7 +57,9 @@ HEADER_MAP = {**SYSTEM_HEADER_MAP, **USER_HEADER_MAP, **CORE_HEADER_MAP}
 
 class IncludeCollector:
     def __init__(self):
-        self.headers: set[tuple[str, bool]] = set()
+        self.headers: set[tuple[str, bool]] = {
+            ("abct/AbcTRuntime.hpp", True)
+        }
 
     def visit(self, node: Node):
         if isinstance(node, (tuple, list)):

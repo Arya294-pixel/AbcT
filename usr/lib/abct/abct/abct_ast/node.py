@@ -2,55 +2,13 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from types import FunctionType
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, TypeAlias
 from enum import Enum, auto
 def frozendataclass(typeobj):
     return dataclass(
         slots=True, frozen=True,
         unsafe_hash=True
     )(typeobj)
-# Base
-class BaseEnum(Enum):
-    @staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        """
-        Overrides the default auto() value generation.
-        Returns the member name formatted to Title Case.
-        """
-        return name.lower().capitalize()
-
-class Node:
-    def get_atributes(self):
-        # 1. Gather all slot names across the entire inheritance chain
-        attributes = set()
-        for cls in self.__class__.__mro__:
-            slots = getattr(cls, '__slots__', [])
-            
-            # Standardize single-string slots into a tuple
-            if isinstance(slots, str):
-                slots = (slots,)
-                
-            attributes.update(slots)
-            
-        # 2. Return a list of attributes, filtering out the method name
-        return [attr for attr in attributes if not isinstance(attr, FunctionType) ]
-
-    def __hash__(self):
-        attr_tuple = ()
-        for attribute in self.get_atributes():
-            val = getattr(self, attribute)
-            # CRITICAL: Handle lists by converting them to tuples for hashing
-            if isinstance(val, list):
-                # We turn the list into a tuple so it can be hashed
-                attr_tuple += (hash(tuple(val)),)
-            else:
-                try:
-                    attr_tuple += (hash(val),)
-                except TypeError:
-                    # Fallback for unhashable non-list types
-                    attr_tuple += (0,)
-        return hash(attr_tuple)
-
 
 # Literals & Names
 @frozendataclass
@@ -125,8 +83,8 @@ class TemplateCall(Node):
 # Statements
 @frozendataclass
 class AnnAssign(Node):
-    target: str
-    annotation: str
+    target: Name
+    annotation: TypeReference
     value: Optional[Node] = None
 
 @frozendataclass
@@ -192,6 +150,7 @@ class FuncDef(Node):
     params: list[tuple[str, TemplateRef|TypeRef]]
     templates: list[TemplateDef]
     body: list
+    readonly: bool = False
 
 @frozendataclass
 class Module(Node):
@@ -201,6 +160,9 @@ class Module(Node):
 class Import(Node):
     source: Name
 
+@frozendataclass
+class Include(Node):
+    source: Name
 
 # OOP
 @frozendataclass
@@ -233,15 +195,70 @@ class TemplateCapablity(BaseEnum):
 class TemplateDef(Node):
     name: Name
     capablity: list[TemplateCapablity] = TemplateCapablity.ANY
-    mangle:bool = False
+    @property
+    def mangle(self):
+        return self.capablity != {TemplateCapablity.ANY}
 
 #overide after dataclass completes it work
 TemplateDef.__hash__ = Node.__hash__
 
-# for accessing the templates
+# ============================================================
+# Type System
+# ============================================================
+
 @frozendataclass
-class TemplateRef(Node):
-    name:Name
+class ConstType(Node):
+    target: Type
+
+# ------------------------------------------------------------
+# References
+# ------------------------------------------------------------
+
 @frozendataclass
-class TypeRef(Node):
-    name:Name
+class TypeRef(Type):
+    name: Name
+
+@frozendataclass
+class TemplateRef(Type):
+    name: Name
+
+
+# ------------------------------------------------------------
+# Modifiers
+# ------------------------------------------------------------
+
+@frozendataclass
+class PtrType(Type):
+    target: Type
+
+
+@frozendataclass
+class RefType(Type):
+    target: Type
+
+
+@frozendataclass
+class RValueRefType(Type):
+    target: Type
+
+
+@frozendataclass
+class ArrayType(Type):
+    target: Type
+
+
+# ------------------------------------------------------------
+# Templates
+# ------------------------------------------------------------
+
+@frozendataclass
+class TemplateType(Type):
+    target: Type
+    args: list[Type]
+
+
+# ------------------------------------------------------------
+# Alias
+# ------------------------------------------------------------
+
+TypeReference: TypeAlias = TypeRef | TemplateRef

@@ -8,6 +8,7 @@ typedef long double LongDouble;
 #include <vector>
 #include <string>
 #include <initializer_list>
+#include <cstddef>
 
 struct CompileTimeConst {
     // The data itself is const

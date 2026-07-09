@@ -2,9 +2,8 @@
 from ..abct_ast.node import (
     TemplateCapablity, ClassDef, 
     AnnAssign, Const, Name,
-    Module
+    Module, Array, TypeRef
 )
-
 class TraitError(RuntimeError): pass
 
 class TraitAnalyser:
@@ -22,56 +21,39 @@ class TraitAnalyser:
                 self.registry[stmt.name.id] = self._get_traits(stmt)
         return self.registry
 
-    def _get_traits(self, node: ClassDef) -> list[TemplateCapablity]:
+    def _get_traits(self, node: ClassDef) -> set[TemplateCapablity]:
         """Analysis logic for a single ClassDef."""
         for attr in node.public_attributes:
             if not isinstance(attr, AnnAssign):
                 continue
             
-            if attr.target != "__trait__":
+            if attr.target.id != "__trait__":
                 continue
             
             # Validation Protocol
-            if attr.annotation != "CompileTimeConst":
-                raise TraitError(f"Protocol Violation in {node.name.id}: Annotation must be 'CompileTimeConst'")
-            
-            if not isinstance(attr.value, Const):
-                raise TraitError(f"Protocol Violation in {node.name.id}: Value must be a constant")
-            
-            return self.parse_trait(attr.value.value)
+            if self.verify_annotation(attr.annotation):
+                raise TraitError(f"Protocol violation in {node.name.id}: Annotation mus be CompileTimeConst.")
+            if not isinstance(attr.value, Array):
+                raise TraitError(f"Protocol violation in {node.name.id}: Value must be an array literal of capability identifiers.")
 
+            traits = set()
+            for element in attr.value.elts:
+                if not isinstance(element, Name):
+                    raise TraitError(f"trait list must contain identifier. Got {type(element).__name__} object")
+                try:
+                    traits.add(TemplateCapablity[element.id.upper()])
+                except KeyError:
+                    raise TraitError(f"Unknown capability '{element.id}'")
+            return traits
         # Handle implicit "ANY" if no __trait__ is defined
-        return [TemplateCapablity.ANY]
+        return {TemplateCapablity.ANY}
 
     @staticmethod
-    def parse_trait(trait_str: str) -> list[TemplateCapablity]:
-        """
-        Parses a string like "['INTEGER', 'COPYABLE']" into a list of Enums.
-        """
-        # 1. Clean the input string
-        s = trait_str.strip().replace(" ", "").replace("'", '"')
-        
-        # 2. Basic Validation
-        if not (s.startswith("[") and s.endswith("]")):
-            raise TraitError(f"Trait declaration must be in format '[...]', got: {trait_str}")
-        
-        # 3. Extract items
-        content = s[1:-1]
-        if not content:
-            return [TemplateCapablity.UNKNOWN]
-        
-        traits = set()
-        items = content.split(",")
-        
-        for item in items:
-            # Remove quotes and normalize to uppercase
-            clean_item = item.replace('"', '').upper()
-            
-            # Lookup in Enum (defaults to UNKNOWN if not found)
-            capability = getattr(TemplateCapablity, clean_item, TemplateCapablity.UNKNOWN)
-            traits.add(capability)
-            
-        return list(sorted(traits, key=lambda x: x.value)) if traits else [TemplateCapablity.UNKNOWN]
+    def verify_annotation(ann):
+        return (
+            isinstance(ann, TypeRef)
+            and ann.name.id == "CompileTimeConst"
+        )
 
 class VerifyTrait:
     def __init__(self, registry: dict):

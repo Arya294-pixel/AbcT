@@ -1,5 +1,6 @@
 # parser/base.py
 from .lexer import Lexer, TokenType, Token
+from copy import deepcopy
 
 class AbcTSyntaxError(SyntaxError):
     """Custom exception that prints a visual error pointer in the terminal."""
@@ -11,7 +12,7 @@ class AbcTSyntaxError(SyntaxError):
         pointer = " " * (token.column - 1) + "^"
         
         error_report = (
-            f"\n[Timber Syntax Error] {message}\n"
+            f"\n[AbcT Syntax Error] {message}\n"
             f"  --> Line {token.line}, Col {token.column}\n"
             f"    |\n"
             f"    |  {src_line}\n"
@@ -20,27 +21,46 @@ class AbcTSyntaxError(SyntaxError):
         super().__init__(error_report)
 
 TimberSyntaxError = AbcTSyntaxError
-
 class BaseParser:
     def __init__(self, source: str):
         self.source_lines = source.splitlines()
         self.lexer = Lexer(source)
-        self.current_token: Token = self.lexer.next_token()
-        self.peek_token: Token = self.lexer.next_token()
+        
+        # Populate tokens list from the lexer
+        self.tokens = []
+        while True:
+            token = self.lexer.next_token()
+            self.tokens.append(token)
+            if token.type == TokenType.EOF: break
+            
+        self.pos = 0
+        self.current_token = self.tokens[self.pos]
+
+    @property
+    def peek_token(self):
+        return self.peek_token_at(1)
+
+    def peek_token_at(self, offset:int):
+        tpos = self.pos + offset
+        if tpos < len(self.tokens) :
+            return self.tokens[tpos]
+        else:
+            return TokenType.EOF
 
     def advance(self):
-        self.current_token = self.peek_token
-        if self.current_token.type != TokenType.EOF:
-            self.peek_token = self.lexer.next_token()
-
-    def check(self, expected_type: TokenType) -> bool:
-        return self.current_token.type == expected_type
+        if self.pos < len(self.tokens) -1:
+            self.pos += 1
+        else:
+            return
+        self.current_token = self.tokens[self.pos]
+        
+    def check(self, *expected_types):
+        return self.current_token.type in expected_types
 
     def match(self, *types: TokenType) -> bool:
-        for t in types:
-            if self.check(t):
-                self.advance()
-                return True
+        if self.check(*types):
+            self.advance()
+            return True
         return False
 
     def consume(self, expected_type: TokenType, err_msg: str) -> Token:
@@ -51,4 +71,4 @@ class BaseParser:
         raise TimberSyntaxError(err_msg, self.current_token, self.source_lines)
 
     def error(self, message: str):
-        raise TimberSyntaxError(message, self.current_token, self.source_lines)
+        raise AbcTSyntaxError(message, self.current_token, self.source_lines)

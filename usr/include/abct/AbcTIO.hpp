@@ -1,134 +1,238 @@
-#ifndef TIMIO_H
-#define TIMIO_H
+#pragma once
 
-#ifdef __cplusplus
 #include <iostream>
-#include <vector>
-#include <string>
 #include <sstream>
-#include <stdexcept>
+#include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
+
+namespace AbcTIO {
 
 // ============================================================================
-// 1. NESTED VECTOR FORMATTING ENGINE (Internal Helpers)
+// Configuration
 // ============================================================================
 
-// Base case: Writes a primitive element directly to the output stream
+inline std::string printsep = " ";
+inline std::string printend = "\n";
+
 // ============================================================================
-// || COMPILE-TIME CAPABILITY CHECKERS (Traits) ||
+// Printable trait detection
 // ============================================================================
 
-// --- Checker 1: Detects if 'std::ostream << T' works ---
-template <typename T, typename = void>
+template<class>
+inline constexpr bool always_false_v = false;
+
+
+// __repr__()
+template<typename T, typename = void>
+struct has_repr : std::false_type {};
+
+template<typename T>
+struct has_repr<
+    T,
+    std::void_t<
+        decltype(std::declval<const T&>().__repr__())
+    >
+> : std::true_type {};
+
+
+// __str__()
+template<typename T, typename = void>
+struct has_str : std::false_type {};
+
+template<typename T>
+struct has_str<
+    T,
+    std::void_t<
+        decltype(std::declval<const T&>().__str__())
+    >
+> : std::true_type {};
+
+
+// toString()
+template<typename T, typename = void>
+struct has_toString : std::false_type {};
+
+template<typename T>
+struct has_toString<
+    T,
+    std::void_t<
+        decltype(std::declval<const T&>().toString())
+    >
+> : std::true_type {};
+
+
+// operator<<
+template<typename T, typename = void>
 struct has_ostream_operator : std::false_type {};
 
-template <typename T>
-struct has_ostream_operator<T, std::void_t<decltype(std::declval<std::ostream&>() << std::declval<const T&>())>> 
-    : std::true_type {};
+template<typename T>
+struct has_ostream_operator<
+    T,
+    std::void_t<
+        decltype(
+            std::declval<std::ostream&>()
+            << std::declval<const T&>()
+        )
+    >
+> : std::true_type {};
 
 
-// --- Checker 2: Detects if 'T.__repr__()' works ---
-template <typename T, typename = void>
-struct has_print_method : std::false_type {};
+// vector detection
+template<typename T>
+struct is_vector : std::false_type {};
 
-template <typename T>
-struct has_print_method<T, 
-std::void_t<decltype(std::declval<const T&>().__repr__())>> 
-    : std::true_type {};
+template<typename T, typename Alloc>
+struct is_vector<std::vector<T, Alloc>> : std::true_type {};
 
 
-void write_element(std::ostream& os, const T& value) {
-    os << value;
+// ============================================================================
+// String conversion protocol
+// __repr__ -> __str__ -> toString -> operator<<
+// ============================================================================
+
+template<typename T>
+std::string stringify(const T& value)
+{
+    if constexpr (has_repr<T>::value)
+    {
+        return value.__repr__();
+    }
+    else if constexpr (has_str<T>::value)
+    {
+        return value.__str__();
+    }
+    else if constexpr (has_toString<T>::value)
+    {
+        return value.toString();
+    }
+    else if constexpr (has_ostream_operator<T>::value)
+    {
+        std::ostringstream ss;
+        ss << value;
+        return ss.str();
+    }
+    else
+    {
+        static_assert(
+            always_false_v<T>,
+            "Type is not printable. Implement __repr__(), __str__(), toString(), or operator<<."
+        );
+    }
 }
 
-// Overload: Recursively unwraps any dimensional vector without mid-way newlines
-template <typename T>
-void write_element(std::ostream& os, const std::vector<T>& vec) {
+
+// ============================================================================
+// Recursive vector formatting
+// ============================================================================
+
+template<typename T>
+void write_element(std::ostream& os, const T& value);
+
+template<typename T>
+void write_element(std::ostream& os, const std::vector<T>& vec)
+{
     os << "[";
-    for (size_t i = 0; i < vec.size(); ++i) {
+
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
         write_element(os, vec[i]);
-        if (i < vec.size() - 1) {
+
+        if (i + 1 < vec.size())
+        {
             os << ", ";
         }
     }
+
     os << "]";
 }
 
-// ============================================================================
-// 2. TIMBER PRINT FUNCTIONS (Public API)
-// ============================================================================
-
-// Handles single primitives (int, double, float, char, etc.)
-template <typename T>
-void print(const T& value) {
-    std::cout << value << std::endl;
+template<typename T>
+void write_element(std::ostream& os, const T& value)
+{
+    os << stringify(value);
 }
 
-// Overload: Handles any vector/matrix (int[], int[][], etc.) and appends one newline
-template <typename T>
-void print(const std::vector<T>& vec) {
-    write_element(std::cout, vec);
-    std::cout << std::endl;
+
+// ============================================================================
+// Variadic print
+// ============================================================================
+
+inline void print()
+{
+    std::cout << printend;
 }
 
+template<typename First, typename... Rest>
+void print(const First& first, const Rest&... rest)
+{
+    if constexpr (is_vector<First>::value)
+    {
+        write_element(std::cout, first);
+    }
+    else
+    {
+        std::cout << stringify(first);
+    }
+
+    ((std::cout << printsep << stringify(rest)), ...);
+
+    std::cout << printend;
+}
+
+
 // ============================================================================
-// 3. TIMBER INPUT ENGINE (Target Deduction Proxy)
+// Input system
 // ============================================================================
 
-class InputProxy {
+class InputProxy
+{
+public:
+    explicit InputProxy(std::string p)
+        : prompt(std::move(p))
+    {}
+
+    operator std::string()
+    {
+        std::cout << prompt << std::flush;
+
+        std::string value;
+
+        std::cin >> std::ws;
+        std::getline(std::cin, value);
+
+        return value;
+    }
+
+    template<typename T>
+    operator T()
+    {
+        std::cout << prompt << std::flush;
+
+        T value;
+        std::cin >> value;
+
+        return value;
+    }
+
 private:
     std::string prompt;
-public:
-    InputProxy(std::string p) : prompt(p) {}
-
-    // Specialization for reading strings (allows full lines with spaces)
-    operator std::string() {
-        std::cout << prompt << std::flush;
-        std::string var;
-        std::cin >> std::ws; 
-        std::getline(std::cin, var);
-        return var;
-    }
-
-    // Template operator for all other types (int, double, float, etc.)
-    template <typename T>
-    operator T() {
-        std::cout << prompt << std::flush;
-        T var;
-        std::cin >> var;
-        return var;
-    }
 };
 
-// Main wrapper function. Marked 'inline' to prevent duplicate symbols during linking.
-inline InputProxy input(std::string prompt) {
+inline InputProxy input(const std::string& prompt)
+{
     return InputProxy(prompt);
 }
 
-// Reference-based alternative signature fallback
-template <typename T>
-void input(T& var, std::string prompt) {
-    std::cout << prompt << std::flush;
-    std::cin >> var;
-}
+} // namespace AbcTIO
 
-#else
+
 // ============================================================================
-// 4. PURE C FALLBACK API (If compiled with a C compiler)
+// Global exports
 // ============================================================================
-#include <stdio.h>
 
-void print_int(int x) {
-    printf("%d\n", x);
-}
-
-void print_double(double x) {
-    printf("%g\n", x);
-}
-
-void print_str(const char* x) {
-    printf("%s\n", x);
-}
-
-#endif // __cplusplus
-#endif // TIMIO_H
+using AbcTIO::input;
+using AbcTIO::print;
+using AbcTIO::printsep;
+using AbcTIO::printend;

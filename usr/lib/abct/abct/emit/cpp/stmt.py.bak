@@ -4,7 +4,7 @@ from abct.abct_ast.node import *
 from .expr import emit_expr
 from .types import ann_to_cpp
 from .include import *
-from .utils import _get_typedef_str, _get_mangled_template, _get_mangled_template_ref, _emit_template_header, _resolvetype
+from .utils import _get_typedef_str, _get_mangled_template, _get_mangled_template_ref, _emit_template_header
 from .classdunder import *
 
 from pprint import pprint  #for debugging
@@ -45,55 +45,55 @@ def emit_cond(node: Node) -> str:
 
 
 def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
-    if isinstance(node, list):
-        return _emit_block(node, ctx)
     # FIX 2: Completely removed 'global local_modules' and the top-level declaration
     match node:
         case Import(source=source):
-            ctx["local_modules"].add(f'#include "{source}"')
+            ctx["local_modules"].add(f'#include "{source.id}.hpp"')
             return "" # FIX 3: Explicitly return empty string to prevent implicit NoneType bugs
-        case Include(source=source):
-            ctx["system_modules"].add(f"#include <{source}>")
-            return ""
 
         case AnnAssign(target=target, annotation=ann, value=val):
-            cpp_type = _resolvetype(ann, ctx)
+            if not isinstance(ann, TemplateRef):
+                cpp_type = ann_to_cpp(ann)
+            else:
+                cpp_type = _get_mangled_template_ref(ann, ctx)
 
             if isinstance(target, Name): target = target.id
 
-            return f"{cpp_type} {target};" if val is None else f"{cpp_type} {target} = {emit_expr(val, ctx)};"
+            return f"{cpp_type} {target};" if val is None else f"{cpp_type} {target} = {emit_expr(val)};"
 
         case Assign(target=t, value=val):
-            return f"{emit_expr(t, ctx)} = {emit_expr(val, ctx)};"
+            return f"{emit_expr(t)} = {emit_expr(val)};"
             
-        case FuncDef(name=name, params=params, ret=ret, body=body, templates=templates, readonly=readonly):
+        case FuncDef(name=name, params=params, ret=ret, body=body, templates=templates):
             # 1. Update context scope for mangling/resolution
             old_templates = ctx.get("templates", [])
             ctx["templates"] = templates
-            in_class_scope = "" != ctx["current_class_name"]
-
+            
             header = _emit_template_header(templates, ctx)
             
             # 2. Resolve Return Type
-            ret_type = _resolvetype(ret, ctx)
+            if isinstance(ret, TemplateRef):
+                ret_type = _get_mangled_template_ref(ret)
+            else:
+                ret_type = ann_to_cpp(ret.name.id)
+
             # 3. Resolve Parameters
             cpp_args = []
-            parameter_readonly = readonly and not in_class_scope
             for pname, ptype_node in params:
-                p_type_str = _resolvetype(ptype_node, ctx,readonly=parameter_readonly)
+                if isinstance(ptype_node, TemplateRef):
+                    # For templates, use the identifier directly
+                    p_type_str = _get_mangled_template_ref(ptype_node,ctx)
+                else:
+                    # For concrete types, use your type mapper
+                    p_type_str = ann_to_cpp(ptype_node)
                 
                 cpp_args.append(f"{p_type_str} {pname}")
-
-            readonly_member = in_class_scope and readonly
 
             # 4. Construct Output
             if ret_type == "": # constructor/NoReturnType case
                 out = f"{header} {name.id}({', '.join(cpp_args)}) {{\n"
             else:
-                if readonly_member:
-                    out = f"{header}{ret_type} {name.id}({', '.join(cpp_args)}) const {{\n"
-                else: 
-                    out = f"{header}{ret_type} {name.id}({', '.join(cpp_args)}) {{\n"
+                out = f"{header}{ret_type} {name.id}({', '.join(cpp_args)}) {{\n"
             out = out.strip()
             out += _emit_block(body, ctx)
             out += "}"
@@ -102,8 +102,33 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             ctx["templates"] = old_templates
             return out
 
+        case ClassDef(name=name, public_attributes=pub_attrs, 
+                      private_attributes=priv_attrs, public_methods=pub_methods, 
+                      private_methods=priv_methods, templates=templates):
+
+            ctx["templates"] += templates
+            ctx["current_class_name"] = name
+            header = _emit_template_header(templates, ctx)
+            ctx["emited_template"].extend(templates)
+            out = f"{header}class {name.id} {{\n"
+            
+            # Combine logic as discussed
+            if pub_attrs or pub_methods:
+                out += "public:\n"
+                out += _emit_block(pub_attrs + pub_methods, ctx)
+            
+            if priv_attrs or priv_methods:
+                out += "private:\n"
+                out += _emit_block(priv_attrs + priv_methods, ctx)
+
+            out += "};"
+
+            for _ in templates:
+                ctx["emited_template"].pop()
+            return out
+
         case Expr(value=val):
-            return f"{emit_expr(val, ctx)};"
+            return f"{emit_expr(val)};"
 
         case Return(value=val):
             return "return;" if val is None else f"return {emit_expr(val)};"
@@ -136,9 +161,6 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             out += "}"
             return out
 
-        case ClassDef():
-            return DunderEmitter(main_emitter=emit_stmt).emit_class(node, ctx)
-
         case Break(level=level):
             return "break;" # level ignored in C++
 
@@ -159,7 +181,6 @@ end_headers = ""
 def emit_module(module: Module, as_module=False, module_name="module") -> str:
     ctx = {
         "local_modules": set(),
-        "system_modules": set(),
         "templates": [],
         "emited_template": [],
         "current_class_name":''
@@ -190,7 +211,6 @@ def emit_module(module: Module, as_module=False, module_name="module") -> str:
     includes = "\n".join(collector.render())
     # FIX 5: Use sorted() to keep the include output deterministic and pristine
     local_includes = "\n".join(sorted(ctx["local_modules"])) 
-    system_includes = "\n".join(sorted(ctx["system_modules"])) 
 
     out = "// Generated by Timber\n"
     out += "// this file should not be touched by user directly\n"
@@ -199,8 +219,6 @@ def emit_module(module: Module, as_module=False, module_name="module") -> str:
 
     if local_includes:
         out += local_includes + "\n\n"
-    if system_includes:
-        out += system_includes + "\n\n"
 
     namespace_code = ""
     if as_module:

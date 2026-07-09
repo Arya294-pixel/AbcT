@@ -37,7 +37,7 @@ def main():
     else:
         formatted = raw
 
-    try:
+    if 1:
         # 2. Parse source string directly from memory (Instant & Safe!)
         p = Parser(formatted)
         ast = p.parse()
@@ -51,7 +51,7 @@ def main():
             f.write(cpp)
         print(f"{args.infile} -> {outfile}")
 
-    except Exception as e:
+    else:
         print(f"Compilation error: {e}", file=sys.stderr)
         # If compilation fails, dump the debug tracker source to help identify line offsets
         if args.keep_temp:

@@ -1,9 +1,14 @@
 # parser/statement.py
+import re # for type extraction
 from .expression import ExpressionParser
 from .lexer import TokenType
 from ..abct_ast.node import *
 
 # utilities
+
+class Set(set):
+    def __hash__(self):
+        return id(self)
 
 def get_mangle_Template(name, params, capabilities):
     # Sort capabilities for canonical order
@@ -14,7 +19,6 @@ def get_mangle_Template(name, params, capabilities):
     
     # Construct the mangle string
     return f"_M15{len(name)}{name}Template{len(params)}{params[0]}0X_0{cap_str}_abcT"
-
 
 
 class StatementParser(ExpressionParser):
@@ -29,10 +33,16 @@ class StatementParser(ExpressionParser):
         TokenType.BREAK,
         TokenType.CONTINUE
     }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ensure_attribute("current_class_templates", Set())
+        
     def parse_statement(self) -> Node:
         while self.match(TokenType.SEMI):pass
+        print("[DDBUG] STMT:", self.current_token)
         if self.match(TokenType.TEMPLATE) or self.check(TokenType.LT): return self.parse_template_stmt()
         if self.match(TokenType.IMPORT): return self.parse_import_stmt()
+        if self.match(TokenType.INCLUDE): return self.parse_include_stmt()
         if self.match(TokenType.TEMPLATE): return self.parse_template_stmt()
         if self.match(TokenType.IF): return self.parse_if_stmt()
         if self.match(TokenType.WHILE): return self.parse_while_stmt()
@@ -46,39 +56,16 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.CONTINUE):
             self.consume(TokenType.SEMI, "Expected ';' after continue.")
             return Continue()
-        if self.current_token.type == TokenType.NAME and self.peek_token.type == TokenType.COLON: return self.parse_AnnAssign()
-        self.error("unexpected keyword found: " +str(self.peek_token))
-    def parse_AnnAssign(self):
-        target_name = self.current_token.value
-        self.advance()  # Consume NAME
-        self.advance()  # Consume COLON
-        if self.current_token.type != TokenType.NAME:
-            self.error(f"invlid token found: {self.current_token}")
-        type_str, depth = self.parse_type()
-        pointer = False
-        if type_str.endswith("*"):
-            pointer = True
-            ptr_length = type_str.count("*")
-            type_str = type_str.replace("*", "")
-        full_annotation = type_str + ("[]" * depth)
-        if pointer:
-            full_annotation += "*" * ptr_length
-            
-        value_node = None
-        if self.match(TokenType.ASSIGN):
-            value_node = self.parse_expression()
-        self.consume(TokenType.SEMI, "Expected ';' after declaration.")
-        return AnnAssign(target=target_name, annotation=full_annotation, value=value_node)
-
-        # Fallback to standard assignments or naked expression statements
-        expr_node = self.parse_expression()
-        if self.match(TokenType.ASSIGN):
-            value_node = self.parse_expression()
-            self.consume(TokenType.SEMI, "Expected ';' after assignment.")
-            return Assign(target=expr_node, value=value_node)
-            
-        self.consume(TokenType.SEMI, "Expected ';' after expression statement.")
-        return Expr(value=expr_node)
+        if self.current_token.type == TokenType.NAME:
+            if self.peek_token_at(1).type == TokenType.COLON:
+                return self.parse_AnnAssign()
+            elif self.peek_token_at(1).type == TokenType.ASSIGN:
+                return self.parse_Assign()
+            expr = self.parse_expression()
+            if isinstance(expr, (Assign, AnnAssign)):
+                return expr
+            return Expr(value=expr)
+        self.error("unexpected keyword found: " +str(self.current_token))
 
     def parse_template_stmt(self) -> Node:
         def inline_iterator_hanldler(i):
@@ -104,7 +91,10 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.TEMPLATE):
             templates = self.parse_template_header()
 
-        # 2. Parse Name and Parameters
+        # 2. Parse Name, Parameters, flags
+        readonly = False
+        if self.match(TokenType.READONLY):
+            readonly = True
         name = Name(id=self.consume(TokenType.NAME, "Expected name").value)
         self.consume(TokenType.LPAREN, "Expected '('")
 
@@ -113,12 +103,8 @@ class StatementParser(ExpressionParser):
             while True:
                 p_name = self.consume(TokenType.NAME, "Param name?").value
                 self.consume(TokenType.COLON, "Expected ':'")
-                t_str, _ = self.parse_type()
-                
-                # Resolve: If name is in templates, it is a TemplateRef
-                is_t = any(t.name.id == t_str for t in templates)
-                node = TemplateRef(Name(t_str)) if is_t else TypeRef(Name(t_str))
-                params.append((p_name, node))
+                p_type = self.parse_type()
+                params.append((p_name, p_type))
                 
                 if not self.match(TokenType.COMMA): break
         
@@ -126,9 +112,7 @@ class StatementParser(ExpressionParser):
         self.consume(TokenType.ARROW, "Expected '->'")
         
         # 3. Resolve Return Type
-        ret_str, _ = self.parse_type()
-        is_ret_t = any(t.name.id == ret_str for t in templates)
-        ret_node = TemplateRef(Name(ret_str)) if is_ret_t else TypeRef(Name(ret_str))
+        ret_node = self.parse_type()
 
         # 4. Parse Body
         self.consume(TokenType.LBRACE, "Expected '{'")
@@ -142,12 +126,16 @@ class StatementParser(ExpressionParser):
             params=params, 
             templates=templates,
             body=body,
-            ret=ret_node
+            ret=ret_node,
+            readonly=readonly
         )
 
     def parse_class_def(self, existing_templates=None) -> ClassDef:
         # 1. Parse optional Template Headers
         templates = existing_templates or []
+        old_templates = self.current_class_templates
+        self.current_class_templates.update(Set({*templates}))
+        self.current_class_templates = Set(self.current_class_templates)
         if self.match(TokenType.TEMPLATE):
             templates = self.parse_template_header()
 
@@ -175,18 +163,24 @@ class StatementParser(ExpressionParser):
                 continue
 
             # Method parsing
+            annassign = False
             if self.match(TokenType.FN):
                 # Pass existing class-level templates down to methods
                 method_node = self.parse_func_def(existing_templates=templates)
-                if current_visibility == TokenType.PUBLIC: 
+                if isinstance(method_node, AnnAssign):
+                    annassign = True
+                elif current_visibility == TokenType.PUBLIC: 
                     public_methods.append(method_node)
                 else: 
                     private_methods.append(method_node)
                 continue
             
             # Attribute parsing
-            if self.current_token.type == TokenType.NAME and self.peek_token == TokenType.COLON:
-                node = self.parse_AnnAssign()
+            if (self.current_token.type == TokenType.NAME and self.peek_token == TokenType.COLON) or annassign:
+                if annassign:
+                    node = method_node
+                else:
+                    node = self.parse_AnnAssign()
                 if current_visibility == TokenType.PUBLIC:
                     public_attrs.append(node)
                 else:
@@ -204,19 +198,35 @@ class StatementParser(ExpressionParser):
                     public_methods.append(node)
 
         self.consume(TokenType.RBRACE, "Expected '}'")
+        self.current_class_templates = old_templates
+
+        _public_methods, _public_attributes = [], []
+        _private_methods, _private_attributes = [], []
+
+        for elemnt in private_methods + private_attrs:
+            if isinstance(elemnt, AnnAssign):
+                _private_attributes.append(elemnt)
+            else:
+                _private_methods.append(elemnt)
+
+        for elemnt in public_methods + public_attrs:
+            if isinstance(elemnt, AnnAssign):
+                _public_attributes.append(elemnt)
+            else:
+                _public_methods.append(elemnt)
 
         return ClassDef(
             name=class_name_node,
-            public_attributes=public_attrs,
-            private_attributes=private_attrs,
-            public_methods=public_methods,
-            private_methods=private_methods,
-            templates=templates # No more template_params here!
+            public_attributes=_public_attributes,
+            private_attributes=_private_attributes,
+            public_methods=_public_methods,
+            private_methods=_private_methods,
+            templates=templates
         )
 
-
+    """
     def parse_import_stmt(self) -> Import:
-        """Parses: import <module_name>;"""
+        \"""Parses: import <module_name>;\"""
         # The 'import' keyword has already been matched and consumed by self.match()
         module_token = self.consume(TokenType.NAME, "Expected module namespace name identifier.")
         module_name = module_token.value
@@ -229,17 +239,110 @@ class StatementParser(ExpressionParser):
         
         # Return a cleanly structured AST block node back up to the collector array
         return Import(source=Name(id=module_name))
+    """
+    def parse_import_stmt(self):
+        module = self.consume(
+            TokenType.STRING,
+            "Expected module name."
+        ).value
+        self.consume(TokenType.SEMI, "Expected ';'.")
+        return Import(source=module)
 
-    def parse_type(self) -> tuple[str, int]:
-        type_token = self.consume(TokenType.NAME, "Expected type name.")
-        type_name = type_token.value
-        while self.match(TokenType.MUL):
-            type_name += "*"
-        depth = 0
-        while self.match(TokenType.LBRACK):
-            self.consume(TokenType.RBRACK, "Expected closing ']' in type signature.")
-            depth += 1
-        return type_name, depth
+    def parse_include_stmt(self):
+        module = self.consume(
+            TokenType.STRING,
+            "Expected module name."
+        ).value
+        self.consume(TokenType.SEMI, "Expected ';'.")
+        return Include(source=module)
+
+    def parse_type_atom(self) -> Type:
+        name = self.consume(
+            TokenType.NAME,
+            "Expected type name."
+        ).value
+
+        if any(
+            t.name.id == name
+            for t in self.current_class_templates
+        ):
+            node = TemplateRef(
+                name=Name(id=name)
+            )
+        else:
+            node = TypeRef(
+                name=Name(id=name)
+            )
+
+        if self.match(TokenType.LT):
+            args = []
+
+            if not self.check(TokenType.GT):
+                args.append(
+                    self.parse_type()
+                )
+
+                while self.match(TokenType.COMMA):
+                    args.append(
+                        self.parse_type()
+                    )
+
+            self.consume(
+                TokenType.GT,
+                "Expected '>' after template arguments."
+            )
+
+            node = TemplateType(
+                target=node,
+                args=args
+            )
+
+        return node
+
+    def parse_type(self) -> Type:
+        readonly = self.match(TokenType.READONLY)
+        node = self.parse_type_atom()
+        while True:
+            if self.match(TokenType.MUL):
+                node = PtrType(target=node)
+
+            elif self.match(TokenType.AMPERSTAND):
+                node = RefType(target=node)
+
+            elif self.match(TokenType.AND):
+                node = RValueRefType(target=node)
+
+            elif self.match(TokenType.LBRACK):
+                self.consume(
+                    TokenType.RBRACK,
+                    "Expected closing ']' in array type."
+                )
+                node = ArrayType(target=node)
+
+            elif self.match(TokenType.LT):
+                args = []
+
+                if not self.check(TokenType.GT):
+                    args.append(self.parse_type())
+
+                    while self.match(TokenType.COMMA):
+                        args.append(self.parse_type())
+
+                self.consume(
+                    TokenType.GT,
+                    "Expected '>' after template arguments."
+                )
+
+                node = TemplateType(
+                    target=node,
+                    args=args
+                )
+
+            else:
+                break
+        if readonly:
+            return ConstType(target=node)
+        return node
 
     def parse_template_header(self) -> list[TemplateDef]:
         templates = []
@@ -265,7 +368,7 @@ class StatementParser(ExpressionParser):
         elif self.match(TokenType.GT): pass
         return templates
 
-
+    """
     def parse_if_stmt(self) -> If:
         test = self.parse_expression()
         self.consume(TokenType.LBRACE, "Expected '{' after if condition.")
@@ -285,6 +388,41 @@ class StatementParser(ExpressionParser):
             self.consume(TokenType.RBRACE, "Expected '}' after else body.")
 
         return If(test=test, body=body, orelse=orelse if orelse else None)
+    """
+    def parse_if_stmt(self) -> If:
+        # 1. Parse the condition
+        # (Assuming parse_expression handles surrounding '(' and ')')
+        test = self.parse_expression()
+        print(f"{test = }")
+        
+        # 2. Consume mandatory LBRACE
+        self.consume(TokenType.LBRACE, "Expected '{' after if condition.")
+        
+        # 3. Parse IF body
+        body = []
+        while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+            # If we see ELSE or ELIF, the if-body is over
+            if self.check(TokenType.ELSE, TokenType.ELIF):
+                break
+            body.append(self.parse_statement())
+            while self.match(TokenType.SEMI): pass
+            print(f"[DEBUG] (parse_if_stmt): {self.current_token = }, {self.peek_token = }")
+        print(self.current_token, self.peek_token)
+        self.consume(TokenType.RBRACE, "Expected '}' after if body.")
+        
+        # 4. Handle ELIF / ELSE
+        orelse = []
+        if self.match(TokenType.ELIF):
+            # Recurse: Elif is just another If statement
+            orelse.append(self.parse_if_stmt())
+        elif self.match(TokenType.ELSE):
+            self.consume(TokenType.LBRACE, "Expected '{' after else keyword.")
+            while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+                orelse.append(self.parse_statement())
+            self.consume(TokenType.RBRACE, "Expected '}' after else body.")
+
+        return If(test=test, body=body, orelse=orelse if orelse else None)
+
 
     def parse_while_stmt(self) -> While:
         test = Cond(expr=self.parse_expression())
@@ -292,14 +430,18 @@ class StatementParser(ExpressionParser):
         body = []
         while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
             body.append(self.parse_statement())
+            while self.match(TokenType.SEMI): pass
         self.consume(TokenType.RBRACE, "Expected '}' after while body.")
         return While(test=test, body=body)
 
     def parse_do_while_stmt(self) -> For:
         self.consume(TokenType.LBRACE, "Expected '{' after do keyword.")
         body = []
-        while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+        while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):        
             body.append(self.parse_statement())
+            while self.match(TokenType.SEMI): pass
+            if self.current_token.type == TokenType.RBRACE:
+                break
         self.consume(TokenType.RBRACE, "Expected '}' after do body.")
         self.consume(TokenType.WHILE, "Expected 'while' keyword after do block.")
         test = Cond(expr=self.parse_expression())

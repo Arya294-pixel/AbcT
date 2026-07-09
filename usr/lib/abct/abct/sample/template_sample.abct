@@ -1,23 +1,18 @@
 template <typename T:(Hashable)>
+
 class container {
-    public:
-        val: T;
-
-    public:
-        <typename U:(Any)>
-        fn process(input: U) -> int {
-            return 0;
-        }
-}
-
-class integer{
-	public:
-		__traits__: CompileTimeConst = ["Integral"];
 	private:
-		x: long;
+    	data: T;
+
+    public:
+    
+    # Standard C++ style constructor
+    	fn container(input: T) -> NoReturnType{
+        	data = input;
+    	}
 }
 
 fn main() -> int{
-	value: container = [1,2];
+	MyData:container<str> = container("data");
 	return 0;
 }

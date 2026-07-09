@@ -19,7 +19,8 @@ TYPE_MAP = {
     "string":"std::string",
     "void": "void",
     "None": "void",
-    "auto": "auto"
+    "auto": "auto",
+    "NoReturnType":""
 }
 
 def ann_to_cpp(ann: str) -> str:

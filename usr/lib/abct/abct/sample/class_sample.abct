@@ -1,0 +1,33 @@
+class Container {
+    data: int[];
+
+    fn __construct__(input: int[]) -> NoReturnType {
+        data = input;
+    }
+
+    fn readonly size() -> int {
+        return getLength(data);
+    }
+
+    fn readonly __getElement__(index: int) -> int {
+        return data[index];
+    }
+}
+
+fn main() -> int {
+    c: Container = Container([10, 20, 30, 40]);
+
+    it: auto = iterate(c);
+
+    while not done(it) {
+        print(next(it));
+    }
+
+    reiterate(it);
+
+    while not done(it) {
+        print(next(it));
+    }
+
+    return 0;
+}
