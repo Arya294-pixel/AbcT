@@ -1,10 +1,10 @@
 Package: abct
-Version: 0.1.0
+Version: 0.1.0~test1
 Section: devel
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.10), clang++ | g++, pkg-config
-Maintainer: arya <amalsarkar294@gmail.com>
-Description: AB Transpiler (abcT)
- A hybrid systems programming language that bridges manual 
+Depends: python3 (>= 3.10), clang++ | g++, pkg-config, bash
+Maintainer: Arya <amalsarkar294@gmail.com>
+Description: AB C++ Transpiler (abcT)
+ A hybrid systems programming language that bridges manual
  C++-style pointer management with high-level memory safety.

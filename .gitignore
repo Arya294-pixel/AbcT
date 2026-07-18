@@ -1,0 +1,13 @@
+# Compiled binaries
+*.out
+*.o
+
+# Editor backups
+*.bak
+
+# Python byte code
+__pycache__/
+*.pyc
+
+# test programs
+*test*

@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from types import FunctionType
+from .BaseNode import *
 from typing import List, Optional, Union, Tuple, TypeAlias
 from enum import Enum, auto
 def frozendataclass(typeobj):
