@@ -42,7 +42,7 @@ class CppExprGen(CAndCppCommonExpr):
                     "+":"+", "-":"-",
                     "*":"*", "/":"/", "%":"%"
                 }
-                return f"{self.emit_expr(left)} {op_map[op]}  {self.emit_expr(right)}"
+                return f"({self.emit_expr(left)} {op_map[op]}  {self.emit_expr(right)})"
 
             case UnaryOp(op="address_of", operand=operand):
                 return f"&{self.emit_expr(operand)}"

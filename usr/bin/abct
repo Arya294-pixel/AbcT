@@ -13,7 +13,7 @@ OUTPUT_EXE="a.out"
 EXTRA_ARGS=""
 C_style=""
 _EXTRA_FLAGS=""
-_COMPILER_FLAGS="-I ."
+_COMPILER_FLAGS="-I . -std=c++20"
 
 module=0
 
