@@ -5,5 +5,5 @@ from .lexer import Lexer, TokenType, Token
 from .lexer import *
 from .builder import Parser
 from .builder import *
-from .base import TimberSyntaxError
+from .base import AbcTSyntaxError
 from .base import *

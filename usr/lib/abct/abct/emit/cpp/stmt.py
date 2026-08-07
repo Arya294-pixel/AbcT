@@ -69,7 +69,7 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
         case FuncDef(name=name, params=params, ret=ret, body=body, templates=templates, readonly=readonly):
             # 1. Update context scope for mangling/resolution
             old_templates = ctx.get("templates", [])
-            ctx["templates"] = templates
+            ctx["templates"] = templates + old_templates
             in_class_scope = "" != ctx["current_class_name"]
 
             header = _emit_template_header(templates, ctx)
@@ -138,6 +138,8 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
 
         case ClassDef():
             return DunderEmitter(main_emitter=emit_stmt).emit_class(node, ctx)
+        case TemplateDef():
+            return _emit_template_header(node, ctx)
 
         case Break(level=level):
             return "break;" # level ignored in C++

@@ -82,7 +82,18 @@ class DunderEmitter:
         ctx["emited_template"].extend(templates)
         # Header and Start
         out = f"{header}"
-        out += f"class {node.name.id} {{\n"
+        base = node.bases
+        if len(base) == 1 and base[0].id == "NoInherit":
+            base = []
+        idx = 0
+        while idx < len(base):
+            if base[idx].id in ("NoInherit",):
+                raise RuntimeError("A class cannot inhert and not inherit at same time. Expected Either NoInherit or ClassName")
+            idx += 1
+        base = ", public ".join(b.id for b in base)
+        if base != "":
+            base = f": public {base} "
+        out += f"class {node.name.id} {base}{{\n"
         
         # Public section
         if node.public_methods or node.public_attributes:

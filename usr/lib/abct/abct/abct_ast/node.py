@@ -164,6 +164,7 @@ class Include(Node):
 @frozendataclass
 class ClassDef(Node):
     name: Name
+    bases: list[Name]
     public_attributes: list[AnnAssign]
     private_attributes: list[AnnAssign]
     public_methods: list[FuncDef]

@@ -20,7 +20,6 @@ class AbcTSyntaxError(SyntaxError):
         )
         super().__init__(error_report)
 
-TimberSyntaxError = AbcTSyntaxError
 class BaseParser:
     def __init__(self, source: str):
         self.source_lines = source.splitlines()
@@ -68,7 +67,12 @@ class BaseParser:
             tok = self.current_token
             self.advance()
             return tok
-        raise TimberSyntaxError(err_msg, self.current_token, self.source_lines)
+        raise AbcTSyntaxError(err_msg, self.current_token, self.source_lines)
+
+    def clearnext(self, expected_type: TokenType):
+        """consumes all token matching the type"""
+        while self.match(expected_type):
+            pass
 
     def error(self, message: str):
         raise AbcTSyntaxError(message, self.current_token, self.source_lines)

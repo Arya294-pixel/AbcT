@@ -3,22 +3,14 @@ import re # for type extraction
 from .expression import ExpressionParser
 from .lexer import TokenType
 from ..abct_ast.node import *
+from logging import info
 
+info = print
 # utilities
 
 class Set(set):
     def __hash__(self):
         return id(self)
-
-def get_mangle_Template(name, params, capabilities):
-    # Sort capabilities for canonical order
-    sorted_caps = sorted(capabilities)
-    
-    # Use 0X_0 as the separator
-    cap_str = "0X_0".join(sorted_caps)
-    
-    # Construct the mangle string
-    return f"_M15{len(name)}{name}Template{len(params)}{params[0]}0X_0{cap_str}_abcT"
 
 
 class StatementParser(ExpressionParser):
@@ -75,15 +67,13 @@ class StatementParser(ExpressionParser):
             except:
                 return [i]
         templates_ = self.parse_template_header()
+        self.clearnext(TokenType.SEMI)
         if self.match(TokenType.CLASS):
             return self.parse_class_def(existing_templates=templates_)
         elif self.match(TokenType.FN):
             return self.parse_func_def(existing_templates=templates_)
 
-        templates = []
-        for template in inline_iterator_hanldler(templates_):
-            templates.append(TemplateDef(template))
-        return templates
+        return templates_ 
 
     def parse_func_def(self, existing_templates=None) -> FuncDef:
         templates = existing_templates or []
@@ -117,7 +107,12 @@ class StatementParser(ExpressionParser):
         # 4. Parse Body
         self.consume(TokenType.LBRACE, "Expected '{'")
         body = []
-        while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+        print(f"LOOP(BEFORE): {self.check}")
+        while not (self.check(TokenType.RBRACE) or self.check(TokenType.EOF)):
+            while self.match(TokenType.SEMI): pass
+            if self.check(TokenType.RBRACE): break
+            self.clearnext(TokenType.SEMI)
+            print(f"LOOP: {self.current_token}")
             body.append(self.parse_statement())
         self.consume(TokenType.RBRACE, "Expected '}'")
 
@@ -138,9 +133,23 @@ class StatementParser(ExpressionParser):
         self.current_class_templates = Set(self.current_class_templates)
         if self.match(TokenType.TEMPLATE):
             templates = self.parse_template_header()
-
+            self.current_class_templates.update(templates)
+        print(self.current_class_templates)
         # 2. Parse Class Name
+        bases = []
         class_name_str = self.consume(TokenType.NAME, "Expected class name.").value
+        print(f"parsing base started. current token: {self.current_token}, peek: {self.peek_token}")
+        if self.match(TokenType.LPAREN):
+            while not self.match(TokenType.RPAREN):
+                bases.append(
+                    Name(
+                        id=self.consume(TokenType.NAME, "Expected ')' or name of the class").value
+                    )
+                )
+                if self.match(TokenType.RPAREN):
+                    break
+                else:
+                    self.consume(TokenType.COMMA, "Expected ',' between two class names")
         class_name_node = Name(id=class_name_str)
 
         self.consume(TokenType.LBRACE, "Expected '{' to start class body.")
@@ -217,6 +226,7 @@ class StatementParser(ExpressionParser):
 
         return ClassDef(
             name=class_name_node,
+            bases=bases or [Name(id="Object")],
             public_attributes=_public_attributes,
             private_attributes=_private_attributes,
             public_methods=_public_methods,
@@ -224,22 +234,6 @@ class StatementParser(ExpressionParser):
             templates=templates
         )
 
-    """
-    def parse_import_stmt(self) -> Import:
-        \"""Parses: import <module_name>;\"""
-        # The 'import' keyword has already been matched and consumed by self.match()
-        module_token = self.consume(TokenType.NAME, "Expected module namespace name identifier.")
-        module_name = module_token.value
-        
-        # Enforce your strict semicolon design specification rule
-        self.consume(TokenType.SEMI, "Expected ';' after import statement.")
-        
-        # Cache the identifier string into our compilation context collection
-        self.imported_modules.add(module_name)
-        
-        # Return a cleanly structured AST block node back up to the collector array
-        return Import(source=Name(id=module_name))
-    """
     def parse_import_stmt(self):
         module = self.consume(
             TokenType.STRING,
