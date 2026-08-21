@@ -1,88 +1,191 @@
-#!/bin/bash
-set -e # Exit immediately if any step fails
+#!/usr/bin/env python3
 
-# Help menu
-if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
-    echo "Timber Compiler Pipeline Tool"
-    echo "Usage: abct <input.tmb> -o <output_executable> [--extra-compile-args='args']"
-    exit 0
-fi
+import argparse
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
 
-INPUT_FILE=""
-OUTPUT_EXE="a.out"
-EXTRA_ARGS=""
-C_style=""
-_EXTRA_FLAGS=""
-_COMPILER_FLAGS="-I . -std=c++20"
 
-module=0
+def abct_config():
+    """Return the include flag required by the AbcT installation."""
+    if platform.system() == "Linux":
+        return "-I/usr/include"
 
-# Parse flags manually to separate compiler inputs from backend engine passes
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -o)
-            OUTPUT_EXE="$2"
-            shift 2
-            ;;
-        --extra-compile-args=*)
-            EXTRA_ARGS="${1#*=}"
-            shift 1
-            ;;
-        --C-style)
-            C_style="--C-style"
-            shift 1
-            ;;
-        --as-module | -m)
-            module=1
-            _EXTRA_FLAGS="$_EXTRA_FLAGS -m $2"
-            shift 2
-            ;;
-        *)
-            if [ -z "$INPUT_FILE" ]; then
-                INPUT_FILE="$1"
-                
-            else
-                echo "Error: Multiple input files detected ($INPUT_FILE and $1)"
-                exit 1
-            fi
-            shift 1
-            ;;
-    esac
-done
+    include_dir = (Path(__file__).resolve().parent / "../include").resolve()
+    return f"-I{include_dir}"
 
-if [ -z "$INPUT_FILE" ]; then
-    echo "Error: No input file specified."
-    exit 1
-fi
+def abcTCpp(argv: list[str]) -> None:
 
-# 1. Compiler Selection Matrix (Prioritize clang++ over g++)
-if command -v clang++ >/dev/null 2>&1; then
-    CXX="clang++"
-elif command -v g++ >/dev/null 2>&1; then
-    CXX="g++"
-else
-    echo "Error: Neither clang++ nor g++ was found on this system." >&2
-    echo "Please install a working C++ compiler backend to use Timber." >&2
-    exit 1
-fi
+    abct_lib = Path("/usr/lib/abct")
 
-# 2. Create a secure temporary workspace for the intermediate C++ code
-TMP_CPP=$(mktemp /tmp/abct_XXXXXX.cpp)
+    if str(abct_lib) not in sys.path:
+        sys.path.insert(0, str(abct_lib))
 
-# Step 1: Lower Timber source to C++ using our tmbCpp script asset
-abcTCpp "$INPUT_FILE" -o "$TMP_CPP" $C_style $_EXTRA_FLAGS
-# Trap exits to wipe out the temporary C++ residue file automatically from /tmp
-trap 'rm -f "$TMP_CPP"' EXIT
+    from abct.compiler.cpp.compiler import main as cpp_compiler_main
 
-if [ $module -eq 1 ]; then
-    cp $TMP_CPP $OUTPUT_EXE
-    exit 0
-fi
+    cpp_compiler_main(argv)
 
-# Fetch required compilation flags from the pkg-config setup
-CXX_FLAGS=$(pkg-config --cflags abct 2>/dev/null || echo "-I/usr/include/abct")
+def find_compiler():
+    """Prefer clang++, falling back to g++."""
+    for compiler in ("clang++", "g++"):
+        if shutil.which(compiler):
+            return compiler
 
-# Step 2: Compile the temporary file using the selected backend engine
-$CXX $CXX_FLAGS "$TMP_CPP" -o "$OUTPUT_EXE" $EXTRA_ARGS $_COMPILER_FLAGS
+    print(
+        "Error: Neither clang++ nor g++ was found on this system.",
+        file=sys.stderr,
+    )
+    print(
+        "Please install a working C++ compiler backend to use AbcT.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
-echo "Successfully built ($CXX) -> $OUTPUT_EXE"
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="abct",
+        description="Timber Compiler Pipeline Tool",
+    )
+
+    parser.add_argument(
+        "input",
+        metavar="input.ab",
+        help="AbcT source file",
+    )
+
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="a.out",
+        help="output executable (default: a.out)",
+    )
+
+    parser.add_argument(
+        "--extra-compile-args",
+        default="",
+        help="additional arguments passed to the C++ compiler",
+    )
+
+    parser.add_argument(
+        "--as-module",
+        metavar="NAME",
+        help="emit a C++ module instead of compiling an executable",
+    )
+
+    parser.add_argument(
+        "-m",
+        dest="module",
+        metavar="NAME",
+        help="emit a C++ module instead of compiling an executable",
+    )
+
+    return parser
+
+
+def run_command(command):
+    try:
+        subprocess.run(command, check=True)
+    except FileNotFoundError:
+        print(f"Error: command not found: {command[0]}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as exc:
+        sys.exit(exc.returncode)
+
+
+def main():
+    parser = build_parser()
+    args = parser.parse_args()
+
+    input_file = Path(args.input)
+
+    if not input_file.exists():
+        print(
+            f"Error: Input file '{input_file}' not found.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not input_file.is_file():
+        print(
+            f"Error: Input path '{input_file}' is not a file.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if input_file.suffix != ".ab":
+        print(
+            f"Error: Input file must have a .ab extension: '{input_file}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # --as-module and -m are aliases.
+    if args.as_module and args.module:
+        parser.error("use either --as-module or -m, not both")
+
+    module_name = args.as_module or args.module
+
+    compiler = find_compiler()
+
+    # Create a secure temporary workspace for intermediate C++ code.
+    tmp_file = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".cpp",
+        prefix="abct_",
+        delete=False,
+    )
+    tmp_cpp = Path(tmp_file.name)
+    tmp_file.close()
+
+    try:
+        # Step 1: Lower AbcT source to C++.
+        cpp_args = [
+            str(input_file),
+            "-o",
+            str(tmp_cpp),
+        ]
+
+        if module_name:
+            cpp_args.extend(["-m", module_name])
+
+        abcTCpp(cpp_args)
+
+        # Module mode: return the generated C++ module directly.
+        if module_name:
+            shutil.copyfile(tmp_cpp, args.output)
+            print(f"Successfully generated module -> {args.output}")
+            return
+
+        # Step 2: Get AbcT include flags.
+        include_flag = abct_config()
+
+        # Step 3: Compile the generated C++.
+        compile_command = [
+            compiler,
+            include_flag,
+            "-std=c++20",
+            str(tmp_cpp),
+            "-o",
+            args.output,
+        ]
+
+        if args.extra_compile_args:
+            compile_command.extend(args.extra_compile_args.split())
+
+        run_command(compile_command)
+
+        print(f"Successfully built ({compiler}) -> {args.output}")
+
+    finally:
+        try:
+            tmp_cpp.unlink()
+        except FileNotFoundError:
+            pass
+
+
+if __name__ == "__main__":
+    main()

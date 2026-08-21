@@ -3,7 +3,7 @@ Version: 0.1.0~test1
 Section: devel
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.10), clang++ | g++, pkg-config, bash
+Depends: python3 (>= 3.10), clang++ | g++, bash
 Maintainer: Arya <amalsarkar294@gmail.com>
 Description: AB C++ Transpiler (abcT)
  A hybrid systems programming language that bridges manual
