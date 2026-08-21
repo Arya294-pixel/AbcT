@@ -1,6 +1,11 @@
-#!/bin/bash
-# Prepend the isolated package directory to Python's module lookup vector paths
-export PYTHONPATH="/usr/lib/abct:$PYTHONPATH"
+#!/usr/bin/env python3
 
-# Run the raw Python transpiler backend engine and pass all user arguments
-exec python3 -m abct.compiler.cpp.compiler "$@"
+import os
+import sys
+
+sys.path.insert(0, "/usr/lib/abct")
+
+from abct.compiler.cpp.compiler import main
+
+if __name__ == "__main__":
+    main()
