@@ -16,7 +16,7 @@ class ExpressionParser(BaseParser):
         left = self.parse_or()
         peek_tokentype = self.peek_token.type # local cache for the type of next token. tbis is mainly done to increa the speed
         if peek_tokentype == TokenType.COLON:
-            return self.parse_AnnAssign(True)
+            return self.parse_AnnAssign()
         elif self.match(TokenType.ASSIGN):
             right = self.parse_or()
             return Assign(
