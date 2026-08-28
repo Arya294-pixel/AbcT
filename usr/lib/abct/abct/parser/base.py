@@ -44,7 +44,7 @@ class BaseParser:
         if tpos < len(self.tokens) :
             return self.tokens[tpos]
         else:
-            return TokenType.EOF
+            return self.tokens[-1]
 
     def advance(self):
         if self.pos < len(self.tokens) -1:
