@@ -12,6 +12,7 @@ class TokenType(Enum):
     PRIVATE = auto(); PUBLIC = auto()
     TEMPLATE = auto(); TYPENAME = auto()
     READONLY = auto()
+    THROW = auto(); TRY=auto(); CATCH = auto();
 
     # Literals & Identifiers
     NAME = auto(); NUMBER = auto(); STRING = auto()
@@ -57,7 +58,8 @@ class Lexer:
         "class":TokenType.CLASS, "private": TokenType.PRIVATE, "public": TokenType.PUBLIC,
         "template":TokenType.TEMPLATE, "typename":TokenType.TYPENAME,
         "not":TokenType.NOT, "and": TokenType.AND, "or": TokenType.OR,
-        "readonly": TokenType.READONLY, "const": TokenType.READONLY,
+        "readonly": TokenType.READONLY, "const": TokenType.READONLY, 
+        "throw": TokenType.THROW, "try": TokenType.TRY, "catch": TokenType.CATCH
     }
 
     def __init__(self, source: str):

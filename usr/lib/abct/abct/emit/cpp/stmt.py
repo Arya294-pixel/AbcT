@@ -97,9 +97,28 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             out = out.strip()
             out += _emit_block(body, ctx)
             out += "}"
-            
+
             # 5. Restore previous context scope
             ctx["templates"] = old_templates
+            return out
+        case TryCatch(try_body=try_body, catch_blocks=catch_blocks):
+            out = "try {\n"
+            out += _emit_block(try_body, ctx)
+            out += "}"
+
+            for catch_block in catch_blocks:
+                exception_type = catch_block.exception_type
+                body = catch_block.body
+
+                if exception_type is None:
+                    out += " catch (...) {\n"
+                else:
+                    cpp_type = _resolvetype(exception_type, ctx)
+                    out += f" catch ({cpp_type}) {{\n"
+
+                out += _emit_block(body, ctx)
+                out += "}"
+
             return out
 
         case Expr(value=val):

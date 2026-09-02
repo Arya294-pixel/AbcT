@@ -199,6 +199,16 @@ class TemplateDef(Node):
 #overide after dataclass completes it work
 TemplateDef.__hash__ = Node.__hash__
 
+@frozendataclass
+class CatchBlock(Node):
+    exception_type: TypeReference | None
+    body: list
+
+@frozendataclass
+class TryCatch(Node):
+    try_body: list
+    catch_blocks: list[CatchBlock]
+
 # ============================================================
 # Type System
 # ============================================================

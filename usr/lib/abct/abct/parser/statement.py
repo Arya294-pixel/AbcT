@@ -42,6 +42,7 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.ITER): return self.parse_iter_stmt()
         if self.match(TokenType.CLASS): return self.parse_class_def()
         if self.match(TokenType.FN): return self.parse_func_def()
+        if self.match(TokenType.TRY): return self.parse_try_catch()
         if self.match(TokenType.RETURN): return self.parse_return_stmt()
         if self.match(TokenType.PASS): return self.parse_pass_stmt()
         if self.match(TokenType.BREAK): return self.parse_break_stmt()
@@ -451,6 +452,76 @@ class StatementParser(ExpressionParser):
             body.append(self.parse_statement())
         self.consume(TokenType.RBRACE, "Expected '}' after iter body.")
         return Iter(iterable=iterable, var=var_name, body=body)
+
+    def parse_try_catch(self) -> TryCatch:
+        # Parse try body
+        self.consume(
+            TokenType.LBRACE,
+            "Expected '{' after try."
+        )
+
+        try_body = []
+
+        while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+            try_body.append(self.parse_statement())
+            self.clearnext(TokenType.SEMI)
+
+        self.consume(
+            TokenType.RBRACE,
+            "Expected '}' after try body."
+        )
+
+        # Parse one or more catch blocks
+        catch_blocks = []
+
+        while self.match(TokenType.CATCH):
+            exception_type = None
+
+            # catch { ... } -> catch all exceptions
+            #
+            # catch SomeError { ... }
+            # catch exception<std::string> { ... }
+            #       ^^^^^^^^^^^^^^^^^^^^^
+            #       parsed by parse_type()
+            if not self.check(TokenType.LBRACE):
+                exception_type = self.parse_type()
+
+            self.consume(
+                TokenType.LBRACE,
+                "Expected '{' after catch type."
+            )
+
+            body = []
+
+            while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
+                body.append(self.parse_statement())
+                self.clearnext(TokenType.SEMI)
+
+            self.consume(
+                TokenType.RBRACE,
+                "Expected '}' after catch body."
+            )
+
+            catch_blocks.append(
+                CatchBlock(
+                    exception_type=exception_type,
+                    body=body
+                )
+            )
+
+        # A try must have at least one catch block.
+        if not catch_blocks:
+            self.error("Expected 'catch' after try block.")
+
+        return TryCatch(
+            try_body=try_body,
+            catch_blocks=catch_blocks
+        )
+
+    def parse_throw_stmt(self) -> Throw:
+        val = self.parse_expression()
+        self.consume(TokenType.SEMI, "Expected ';' after throw statement.")
+        return Throw(value=val)
 
     def parse_return_stmt(self) -> Return:
         val = None
