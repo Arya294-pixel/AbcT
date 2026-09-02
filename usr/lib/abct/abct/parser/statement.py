@@ -346,20 +346,8 @@ class StatementParser(ExpressionParser):
         while True:
             self.consume(TokenType.TYPENAME, "Expected 'typename'")
             t_name = self.consume(TokenType.NAME, "Expected template name").value
-        
-            cap = [TemplateCapablity.ANY]
-            if self.match(TokenType.COLON):
-                self.consume(TokenType.LPAREN, "Expected '('")
-                cap_name = self.consume(TokenType.NAME, "expected capability").value
-                # Map string to Enum here
-                cap = [TemplateCapablity[cap_name.upper()]] 
-                self.consume(TokenType.RPAREN, "Expected ')'")
+            if self.not check(TokenType.COMMA): break
 
-            # FIX: Store as TemplateDef object
-            templates.append(TemplateDef(name=Name(id=t_name), capablity=cap))
-
-            if not self.match(TokenType.COMMA): break
-    
         if self.check(TokenType.GT): self.consume(TokenType.GT, "Expected '>'")
         elif self.match(TokenType.GT): pass
         return templates

@@ -171,34 +171,10 @@ class ClassDef(Node):
     private_methods: list[FuncDef]
     templates: list[TemplateDef]
 
-class TemplateCapablity(BaseEnum):
-    COMPARABLE = auto()
-    DECIMAL = auto()
-    INTEGER = auto()
-
-    SUBSCRIPTABLE = auto()
-    ITERABLE = auto()
-    HASHABLE = auto()
-    COPYABLE = auto()
-    RUNTIME_CHECK = auto()
-    NO_CHECK = auto()
-
-    ANY = auto()
-    UNKNOWN = auto()
-    USER = auto()   # user protocols
-
 # for definations of templates
 @frozendataclass
 class TemplateDef(Node):
     name: Name
-    capablity: list[TemplateCapablity] = TemplateCapablity.ANY
-    @property
-    def mangle(self):
-        return self.capablity != {TemplateCapablity.ANY}
-
-#overide after dataclass completes it work
-TemplateDef.__hash__ = Node.__hash__
-
 @frozendataclass
 class CatchBlock(Node):
     exception_type: TypeReference | None

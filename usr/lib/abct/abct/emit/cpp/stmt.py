@@ -4,7 +4,7 @@ from abct.abct_ast.node import *
 from .expr import emit_expr
 from .types import ann_to_cpp
 from .include import *
-from .utils import _get_typedef_str, _get_mangled_template, _get_mangled_template_ref, _emit_template_header, _resolvetype
+from .utils import  _resolvetype, _emit_template_header
 from .classdunder import *
 
 from pprint import pprint  #for debugging

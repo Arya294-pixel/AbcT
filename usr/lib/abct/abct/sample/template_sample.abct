@@ -1,4 +1,4 @@
-template <typename T:(Hashable)>
+template <typename T>
 
 class container {
 	private:
