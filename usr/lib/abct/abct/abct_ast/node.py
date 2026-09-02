@@ -202,12 +202,17 @@ TemplateDef.__hash__ = Node.__hash__
 @frozendataclass
 class CatchBlock(Node):
     exception_type: TypeReference | None
+    exception_name: Name | None
     body: list
 
 @frozendataclass
 class TryCatch(Node):
     try_body: list
     catch_blocks: list[CatchBlock]
+
+@frozendataclass
+class Throw(Node):
+    value: Expr 
 
 # ============================================================
 # Type System

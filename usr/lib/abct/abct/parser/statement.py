@@ -43,6 +43,7 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.CLASS): return self.parse_class_def()
         if self.match(TokenType.FN): return self.parse_func_def()
         if self.match(TokenType.TRY): return self.parse_try_catch()
+        if self.match(TokenType.THROW): return self.parse_throw_stmt()
         if self.match(TokenType.RETURN): return self.parse_return_stmt()
         if self.match(TokenType.PASS): return self.parse_pass_stmt()
         if self.match(TokenType.BREAK): return self.parse_break_stmt()
@@ -484,6 +485,12 @@ class StatementParser(ExpressionParser):
             #       ^^^^^^^^^^^^^^^^^^^^^
             #       parsed by parse_type()
             if not self.check(TokenType.LBRACE):
+                exception_name = None
+                if self.current_token.type == TokenType.NAME and self.peek_token.type == TokenType.COLON:
+                    exception_name = Name(
+                        self.consume(TokenType.NAME, "expected exception name").value
+                    )
+                    self.advance()
                 exception_type = self.parse_type()
 
             self.consume(
@@ -505,6 +512,7 @@ class StatementParser(ExpressionParser):
             catch_blocks.append(
                 CatchBlock(
                     exception_type=exception_type,
+                    exception_name=exception_name,
                     body=body
                 )
             )
@@ -515,13 +523,15 @@ class StatementParser(ExpressionParser):
 
         return TryCatch(
             try_body=try_body,
-            catch_blocks=catch_blocks
+            catch_blocks=catch_blocks,
         )
 
     def parse_throw_stmt(self) -> Throw:
         val = self.parse_expression()
         self.consume(TokenType.SEMI, "Expected ';' after throw statement.")
-        return Throw(value=val)
+        return Throw(
+            Expr(value=val)
+        )
 
     def parse_return_stmt(self) -> Return:
         val = None
