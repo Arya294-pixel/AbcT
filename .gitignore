@@ -11,3 +11,7 @@ __pycache__/
 
 # test programs
 *test*
+
+# genereted cpp samples
+
+usr/lib/abct/abct/sample/*.cpp
