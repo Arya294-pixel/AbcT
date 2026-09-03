@@ -346,7 +346,7 @@ class StatementParser(ExpressionParser):
         while True:
             self.consume(TokenType.TYPENAME, "Expected 'typename'")
             t_name = self.consume(TokenType.NAME, "Expected template name").value
-            if self.not check(TokenType.COMMA): break
+            if not self.check(TokenType.COMMA): break
 
         if self.check(TokenType.GT): self.consume(TokenType.GT, "Expected '>'")
         elif self.match(TokenType.GT): pass
