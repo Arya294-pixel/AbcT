@@ -35,7 +35,6 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.TEMPLATE) or self.check(TokenType.LT): return self.parse_template_stmt()
         if self.match(TokenType.IMPORT): return self.parse_import_stmt()
         if self.match(TokenType.INCLUDE): return self.parse_include_stmt()
-        if self.match(TokenType.TEMPLATE): return self.parse_template_stmt()
         if self.match(TokenType.IF): return self.parse_if_stmt()
         if self.match(TokenType.WHILE): return self.parse_while_stmt()
         if self.match(TokenType.DO): return self.parse_do_while_stmt()
@@ -346,7 +345,11 @@ class StatementParser(ExpressionParser):
         while True:
             self.consume(TokenType.TYPENAME, "Expected 'typename'")
             t_name = self.consume(TokenType.NAME, "Expected template name").value
+            templates.append(
+                TemplateDef(Name(id=t_name))
+            )
             if not self.check(TokenType.COMMA): break
+            else: self.consume(TokenType.COMMA, "expected ',' or '>'")
 
         if self.check(TokenType.GT): self.consume(TokenType.GT, "Expected '>'")
         elif self.match(TokenType.GT): pass
