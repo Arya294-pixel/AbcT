@@ -140,6 +140,12 @@ class IncludeCollector:
             self.headers.add(HEADER_MAP[name])
 
     def _check_type(self, t: str):
+        if hasattr(t, "name"):
+            t = t.name
+        if hasattr(t, "id"):
+         t = t.id 
+        if not isinstance(t, str):
+            return
         ts = self.extract_qualified_names(t)
         if not ts:
             ts = [t]
