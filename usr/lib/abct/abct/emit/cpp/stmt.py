@@ -24,24 +24,26 @@ def _emit_block(stmts, ctx: dict) -> str:
                 out += f" {line}\n"
     return out
 
-def emit_cond(node: Node) -> str:
+def emit_cond(node: Node, ctx=None) -> str:
     """Emits conditional logic, handling compulsory boolean transformations"""
+    if ctx is None:
+        ctx = {}
     match node:
         case Cond(expr=inner_expr):
-            return emit_cond(inner_expr)
+            return emit_cond(inner_expr, ctx)
 
         case UnaryOp(op="not", operand=operand):
-            return f"!({emit_cond(operand)})"
+            return f"!({emit_cond(operand, ctx)})"
 
         case BinOp(left=left, op="and", right=right):
-            return f"({emit_cond(left)}) && ({emit_cond(right)})"
+            return f"({emit_cond(left, ctx)}) && ({emit_cond(right, ctx)})"
 
         case BinOp(left=left, op="or", right=right):
-            return f"({emit_cond(left)}) || ({emit_cond(right)})"
+            return f"({emit_cond(left, ctx)}) || ({emit_cond(right, ctx)})"
 
         # If it's a standard expression (Compare, Name, Const), fall back to emit_expr
         case _:
-            return emit_expr(node)
+            return emit_expr(node, ctx)
 
 
 def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
@@ -133,10 +135,10 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             return f"{emit_expr(val, ctx)};"
 
         case Return(value=val):
-            return "return;" if val is None else f"return {emit_expr(val)};"
+            return "return;" if val is None else f"return {emit_expr(val, ctx)};"
 
         case If(test=test, body=body, orelse=orelse):
-            out = f"if ({emit_cond(test)}) {{\n"
+            out = f"if ({emit_cond(test, ctx)}) {{\n"
             out += _emit_block(body, ctx) # FIX 1: Forward ctx down
             out += "}"
             if orelse:
@@ -146,19 +148,19 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             return out
 
         case While(test=test, body=body):
-            out = f"while ({emit_expr(test)}) {{\n"
+            out = f"while ({emit_expr(test, ctx)}) {{\n"
             out += _emit_block(body, ctx) # FIX 1: Forward ctx down
             out += "}"
             return out
 
         case For(target=target, iterable=iter_, body=body):
-            out = f"for (auto {target} : {emit_expr(iter_)}) {{\n"
+            out = f"for (auto {target} : {emit_expr(iter_, ctx)}) {{\n"
             out += _emit_block(body, ctx) # FIX 1: Forward ctx down
             out += "}"
             return out
 
         case Iter(iterable=iter_, var=var, body=body):
-            out = f"for (auto {var} : {emit_expr(iter_)}) {{\n"
+            out = f"for (auto {var} : {emit_expr(iter_, ctx)}) {{\n"
             out += _emit_block(body, ctx) # FIX 1: Forward ctx down
             out += "}"
             return out

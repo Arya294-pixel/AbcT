@@ -5,8 +5,8 @@ from .utils import _resolvetype
 from abct.abct_ast.node import *
 
 class CppExprGen(CAndCppCommonExpr):
-    def __init__(self, ctx={}):
-        self.ctx = ctx
+    def __init__(self, ctx=None):
+        self.ctx = ctx if ctx is not None else {}
     def emit_expr(self, node:Node):
         match node:
             case Attribute():
@@ -16,14 +16,14 @@ class CppExprGen(CAndCppCommonExpr):
             case Subscript():
                 return self.emit_subscript(node)
             case Call(func=func, args=args):
-                func_name = emit_expr(func)
-                cpp_args = [emit_expr(arg) for arg in node.args]
+                func_name = self.emit_expr(func)
+                cpp_args = [self.emit_expr(arg) for arg in args]
                 return f"{func_name}({', '.join(cpp_args)})"
 
             case TemplateCall(func=func, targs=targs, args=args):
                 return self.emit_template_call(func=func, targs=targs, args=args)
             case Compare(left=left, op=op, right=right):
-                    return f"{emit_expr(left)} {op} {emit_expr(right)}"
+                    return f"{self.emit_expr(left)} {op} {self.emit_expr(right)}"
 
             case Cond(expr=expr):
                 bool_map = {
@@ -32,11 +32,11 @@ class CppExprGen(CAndCppCommonExpr):
                 }
                 match expr:
                     case UnaryOp(op="not", operand=operand):
-                        return f"!{emit_expr(operand)}"
+                        return f"!{self.emit_expr(operand)}"
                     case BinOp(left=left, op=op ,right=right) if op in bool_map:
-                        return f"{emit_expr(left)} {bool_map[op]}  {emit_expr(right)}"
+                        return f"{self.emit_expr(left)} {bool_map[op]}  {self.emit_expr(right)}"
                     case _:
-                        return emit_expr(expr)
+                        return self.emit_expr(expr)
             case BinOp(left=left, op=op, right=right):
                 op_map = {
                     "+":"+", "-":"-",
@@ -78,9 +78,8 @@ class CppExprGen(CAndCppCommonExpr):
         elements = ", ".join(self.emit_expr(a) for a in node.elts)
         return "{"+ elements +"}"
     def emit_subscript(self, node):
-        emit_expr = self.emit_expr # cache temporay to speed up 
         # because attribute look up is slower than LOAD_FAST
-        return f"{emit_expr(node.value)}[{emit_expr(node.index)}]"
+        return f"{self.emit_expr(node.value)}[{self.emit_expr(node.index)}]"
         
 
     # emit_pow, emit_floordiv, emit_binop, emit_call, etc: inherited from common

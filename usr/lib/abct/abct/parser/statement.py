@@ -200,8 +200,8 @@ class StatementParser(ExpressionParser):
             elif self.check(TokenType.RBRACE):
                 break
             else:
-                if self.peek_token.type in self.FORBIDDEN_IN_CLASS:
-                    self.error(f"use of {self.peek_token} is forbidden inside a class scope")
+                if self.current_token.type in self.FORBIDDEN_IN_CLASS:
+                    self.error(f"use of {self.current_token} is forbidden inside a class scope")
                 node = self.parse_statement()
                 if current_visibility == TokenType.PRIVATE:
                     private_attrs.append(node)
