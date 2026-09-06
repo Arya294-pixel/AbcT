@@ -101,7 +101,7 @@ class DunderEmitter:
             pprint(node.public_attributes + node.public_methods)            
             out += self.emit_block(node.public_attributes + node.public_methods, ctx, sep="\n")
 
-        for m in node.private_methods or node.private_attributes:
+        if node.private_methods or node.private_attributes:
             out += "private:\n"
             out += self.emit_block(node.private_attributes + node.private_methods, ctx, sep="\n")
         
