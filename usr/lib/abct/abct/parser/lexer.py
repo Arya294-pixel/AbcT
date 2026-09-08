@@ -170,13 +170,10 @@ class Lexer:
                 while self.peek() != quote:
                     if self.position >= self.length:
                         raise SyntaxError(f"Unterminated string starting at line {start_line}")
-                    c = self.advance()
-                    if c == '\\':
-                        val.append(self.advance())
-                    else:
-                        val.append(c)
+                    c = self.advance()    
+                    val.append(c)
                 self.advance() # Consume closing quote
-                decoded = bytes("".join(val), "utf-8").decode("unicode_escape")
+                decoded = "".join(val)
                 return Token(TokenType.STRING, decoded, start_line, start_col)
 
             # Numbers
