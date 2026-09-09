@@ -433,7 +433,7 @@ class StatementParser(ExpressionParser):
         self.consume(TokenType.WHILE, "Expected 'while' keyword after do block.")
         test = Cond(expr=self.parse_expression())
         self.consume(TokenType.SEMI, "Expected terminating ';' after do-while condition.")
-        return For(header=(None, test, None), body=body)
+        return DoWhile(test, body=body)
 
     def parse_iter_stmt(self) -> Iter:
         iterable = self.parse_expression()

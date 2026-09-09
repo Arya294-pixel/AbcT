@@ -153,6 +153,12 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
             out += "}"
             return out
 
+        case DoWhile(test=test, body=body):
+            out = "do {\n"
+            out += _emit_block(body, ctx)
+            out += f"}} while ({emit_expr(test, ctx)});"
+            return out
+
         case For(target=target, iterable=iter_, body=body):
             out = f"for (auto {target} : {emit_expr(iter_, ctx)}) {{\n"
             out += _emit_block(body, ctx) # FIX 1: Forward ctx down

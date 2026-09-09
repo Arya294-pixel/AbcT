@@ -170,7 +170,7 @@ private:
     secret: int;
 }
 ```
-you may use NoInherit to avoid ant kind of inhertance
+You may use `NoInherit` to avoid any kind of inheritance.
 
 ### Constructors
 
@@ -262,6 +262,17 @@ Range-based iteration is emitted as a C++ range-based `for` loop.
 iter item in items {
     print(item);
 }
+```
+
+### Do-While Loop
+
+The `do...while` loop executes its body at least once and continues while the condition is true.
+
+```abct
+do {
+    print(a);
+    a = a + 1;
+} while a < 3;
 ```
 
 ### Loop control

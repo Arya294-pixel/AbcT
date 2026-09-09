@@ -118,6 +118,11 @@ class While(Node):
     body:list
 
 @frozendataclass
+class DoWhile(Node):
+    test: Cond
+    body:list
+
+@frozendataclass
 class Pass(Node):
     pass
 
