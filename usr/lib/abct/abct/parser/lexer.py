@@ -4,8 +4,9 @@ import re
 
 class TokenType(Enum):
     # Keywords
-    FN = auto(); IF = auto(); ELIF = auto(); ELSE = auto(); WHILE = auto()
-    DO = auto(); ITER = auto(); RETURN = auto(); PASS = auto(); BREAK = auto()
+    FN = auto(); IF = auto(); ELIF = auto(); ELSE = auto();
+    WHILE = auto(); DO = auto(); ITER = auto(); IN = auto();
+    RETURN = auto(); PASS = auto(); BREAK = auto()
     CONTINUE = auto(); TRUE = auto(); FALSE = auto()
     IMPORT = auto(); INCLUDE = auto();
     CLASS = auto();
@@ -50,7 +51,7 @@ class Lexer:
     KEYWORDS = {
         "fn": TokenType.FN, "if": TokenType.IF, "elif": TokenType.ELIF,
         "else": TokenType.ELSE, "while": TokenType.WHILE, "do": TokenType.DO,
-        "iter": TokenType.ITER, "return": TokenType.RETURN, "pass": TokenType.PASS,
+        "iter": TokenType.ITER, "in": TokenType.IN, "return": TokenType.RETURN, "pass": TokenType.PASS,
         "break": TokenType.BREAK, "continue": TokenType.CONTINUE,
         "true": TokenType.TRUE, "True": TokenType.TRUE,
         "false": TokenType.FALSE, "False": TokenType.FALSE,

@@ -436,12 +436,14 @@ class StatementParser(ExpressionParser):
         return DoWhile(test, body=body)
 
     def parse_iter_stmt(self) -> Iter:
-        iterable = self.parse_expression()
         var_name = self.consume(TokenType.NAME, "Expected iterator variable name.").value
+        self.consume(TokenType.IN, "expected 'in' between name and iterable")
+        iterable = self.parse_expression()
         self.consume(TokenType.LBRACE, "Expected '{' after iterator block start.")
         body = []
         while not self.check(TokenType.RBRACE) and not self.check(TokenType.EOF):
             body.append(self.parse_statement())
+            self.clearnext(TokenType.SEMI)
         self.consume(TokenType.RBRACE, "Expected '}' after iter body.")
         return Iter(iterable=iterable, var=var_name, body=body)
 
