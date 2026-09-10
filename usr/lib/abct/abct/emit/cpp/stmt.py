@@ -65,9 +65,10 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
 
             return f"{cpp_type} {target};" if val is None else f"{cpp_type} {target} = {emit_expr(val, ctx)};"
 
-        case Assign(target=t, value=val):
+        case Assign(target=t, value=val, compound=None):
             return f"{emit_expr(t, ctx)} = {emit_expr(val, ctx)};"
-            
+        case Assign(target=t, value=val, compound=compound):
+            return f"{emit_expr(t, ctx)} {compound.id}= {emit_expr(val, ctx)};"
         case FuncDef(name=name, params=params, ret=ret, body=body, templates=templates, readonly=readonly):
             # 1. Update context scope for mangling/resolution
             old_templates = ctx.get("templates", [])

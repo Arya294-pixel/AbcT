@@ -87,6 +87,7 @@ class AnnAssign(Node):
 class Assign(Node):
     target: Node
     value: Node
+    compound: Name | None = None
 
 @frozendataclass
 class Expr(Node):

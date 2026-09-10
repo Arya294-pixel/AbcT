@@ -14,6 +14,8 @@ class ExpressionParser(BaseParser):
 
     def parse_expression(self) -> Node:
         left = self.parse_or()
+        ASSIGN_TOK = {TokenType.ADD_ASSIGN, TokenType.SUB_ASSIGN,
+        TokenType.MUL_ASSIGN, TokenType.DIV_ASSIGN}
         peek_tokentype = self.peek_token.type # local cache for the type of next token. tbis is mainly done to increa the speed
         if peek_tokentype == TokenType.COLON:
             return self.parse_AnnAssign()
@@ -21,7 +23,17 @@ class ExpressionParser(BaseParser):
             right = self.parse_or()
             return Assign(
                 target=left,
-                value=right
+                value=right,
+                compound=None
+            )
+        elif self.check(*ASSIGN_TOK):
+            string = Name(id=self.current_token.value[:1])
+            self.advance()
+            right = self.parse_or()
+            return Assign(
+                target=left,
+                value=right,
+                compound=string
             )
         return left
     def parse_Assign(self):

@@ -19,7 +19,10 @@ class TokenType(Enum):
     NAME = auto(); NUMBER = auto(); STRING = auto()
 
     # Operators
-    ASSIGN = auto()          # =
+    ASSIGN = auto(); ADD_ASSIGN = auto()          # =, +=
+    SUB_ASSIGN = auto(); MUL_ASSIGN = auto()      # -=, *=
+    DIV_ASSIGN = auto();                          # /=
+
     EQ = auto(); NEQ = auto() # ==, !=
     LT = auto(); LE = auto()  # <, <=
     GT = auto(); GE = auto()  # >, >=
@@ -143,6 +146,9 @@ class Lexer:
                 if self.peek() == '>':
                     self.advance()
                     return self.make_token(TokenType.ARROW, "->")
+                elif self.peek() == '=':
+                    self.advance()
+                    return self.make_token(TokenType.SUB_ASSIGN, "-=")
                 return self.make_token(TokenType.SUB, "-")
 
             if char == ':':
@@ -152,6 +158,7 @@ class Lexer:
                     return self.make_token(TokenType.DOUBLE_COLON, "::")
                 return self.make_token(TokenType.COLON, ":")
 
+
             # Single-character tokens (FIXED: dictionary keys match Enum variants)
             single_tokens = {
                 '+': TokenType.ADD, '*': TokenType.MUL, '/': TokenType.DIV, '%': TokenType.MOD,
@@ -159,8 +166,17 @@ class Lexer:
                 '{': TokenType.LBRACE, '}': TokenType.RBRACE, '[': TokenType.LBRACK,
                 ']': TokenType.RBRACK, ';': TokenType.SEMI, ',': TokenType.COMMA, '.': TokenType.DOT
             }
+
+            # tokens which can be followed by =
+            eq_follow = {
+                '+': TokenType.ADD_ASSIGN,
+                '/': TokenType.DIV_ASSIGN, '*': TokenType.MUL_ASSIGN,
+            }
             if char in single_tokens:
                 self.advance()
+                if char in eq_follow and self.peek() == "=":
+                    self.advance()
+                    return self.make_token(eq_follow[char], char+'=')
                 return self.make_token(single_tokens[char], char)
 
             # Strings
