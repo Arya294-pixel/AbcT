@@ -1,4 +1,4 @@
-# abct/emit/cpp/classdunder.py
+⁷77# abct/emit/cpp/classdunder.py
 from __future__ import annotations
 
 from dataclasses import field, replace
@@ -64,7 +64,7 @@ class DunderEmitter:
         init_str = f" : {inits}" if inits else ""
 
         params = [f"{_resolvetype(ptype, ctx)} {pname}" for pname, ptype in node.params]
-        params_str = "".join(params)
+        params_str = ", ".join(params)
         return f"{class_name}({params_str}) {init_str} {{\n {body_code} }}"
 
     def emit_destruct(self, node, class_name, ctx):

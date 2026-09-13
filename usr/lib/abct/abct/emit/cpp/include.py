@@ -31,10 +31,7 @@ CORE_HEADER_MAP = {
     "CompileTimeConst": ("abct/AbcTTypes.hpp", False),
 }
 
-USER_HEADER_MAP = {
-    "print": ("AbcTIO.hpp", False),
-    "input": ("AbcTIO.hpp", False),
-}
+USER_HEADER_MAP = {}
 
 # 2. Load user/project headers from JSON
 try:
