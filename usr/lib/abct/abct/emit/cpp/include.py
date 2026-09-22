@@ -59,7 +59,7 @@ class IncludeCollector:
         }
 
     def visit(self, node: Node):
-        if isinstance(node, (tuple, list)):
+        if isinstance(node, (tuple, list, set)):
             for items in node:
                 self.visit(items)
 
@@ -116,6 +116,27 @@ class IncludeCollector:
             case BinOp(left=l, right=r):
                 self.visit(l)
                 self.visit(r)
+
+            case While(body=body, test=test) | DoWhile(body=body, test=test):
+                for b in body: self.visit(b)
+                self.visit(test)
+
+            case Iter(iterable=it, body=body):
+                self.visit(it)
+                self.visit(body)
+
+            case Assign(value=value):
+                self.visit(value)
+
+            case Return(value=value) | Throw(value=value):
+                self.visit(value)
+
+            case TryCatch(try_body=t, catch_block=c):
+                self.visit(t)
+                self.visit(c)
+
+            case CatchBlock(body=body):
+                self.visit(body)
 
             case _:
                 pass
