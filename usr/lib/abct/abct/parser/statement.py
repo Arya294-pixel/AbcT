@@ -31,7 +31,7 @@ class StatementParser(ExpressionParser):
         
     def parse_statement(self) -> Node:
         while self.match(TokenType.SEMI):pass
-        print("[DDBUG] STMT:", self.current_token)
+        print("[DDEBUG] STMT:", self.current_token)
         if self.match(TokenType.TEMPLATE) or self.check(TokenType.LT): return self.parse_template_stmt()
         if self.match(TokenType.IMPORT): return self.parse_import_stmt()
         if self.match(TokenType.INCLUDE): return self.parse_include_stmt()
@@ -40,6 +40,7 @@ class StatementParser(ExpressionParser):
         if self.match(TokenType.DO): return self.parse_do_while_stmt()
         if self.match(TokenType.ITER): return self.parse_iter_stmt()
         if self.match(TokenType.CLASS): return self.parse_class_def()
+        if self.match(TokenType.ENUM): return self.parse_enum_def()
         if self.match(TokenType.FN): return self.parse_func_def()
         if self.match(TokenType.TRY): return self.parse_try_catch()
         if self.match(TokenType.THROW): return self.parse_throw_stmt()
@@ -233,6 +234,64 @@ class StatementParser(ExpressionParser):
             public_methods=_public_methods,
             private_methods=_private_methods,
             templates=templates
+        )
+
+    def parse_enum_def(self) -> EnumDef:
+        enum_name = self.consume(
+            TokenType.NAME,
+            "Expected enum name."
+        ).value
+
+        enum_type = None
+
+        # enum Color: int
+        if self.match(TokenType.COLON):
+            enum_type = self.parse_type()
+
+        self.consume(
+            TokenType.LBRACE,
+            "Expected '{' after enum declaration."
+        )
+
+        body = []
+
+
+        while not self.check(TokenType.RBRACE):
+            if self.check(TokenType.EOF):
+                self.error("Expected '}' after enum body.")
+
+            member_name = self.consume(
+                TokenType.NAME,
+                "Expected enum member name."
+            ).value
+
+            value = None
+
+            # we are not using parse_AnnAssign
+            # because it consumes ';' ntead of ','
+            # VAR = VALUE
+            if self.match(TokenType.ASSIGN):
+                value = self.parse_expression()
+
+            body.append(
+                EnumAttr(
+                    name=Name(id=member_name),
+                    value=value
+                )
+            )
+
+            # RED, GREEN, BLUE
+            if not self.check(TokenType.RBRACE): self.consume(TokenType.COMMA, "expected ',' between two Enum member")
+
+        self.consume(
+            TokenType.RBRACE,
+            "Expected '}' after enum body."
+        )
+
+        return EnumDef(
+            name=Name(id=enum_name),
+            type=enum_type,
+            body=body
         )
 
     def parse_import_stmt(self):

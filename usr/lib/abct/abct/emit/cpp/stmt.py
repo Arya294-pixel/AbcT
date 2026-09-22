@@ -6,6 +6,7 @@ from .types import ann_to_cpp
 from .include import *
 from .utils import  _resolvetype, _emit_template_header
 from .classdunder import *
+from .enum import *
 
 from pprint import pprint  #for debugging
 
@@ -174,6 +175,10 @@ def emit_stmt(node: Node, ctx: dict[str, object]) -> str:
 
         case ClassDef():
             return DunderEmitter(main_emitter=emit_stmt).emit_class(node, ctx)
+
+        case EnumDef():
+            return EnumEmitter(main_emitter=emit_stmt).emit(node, ctx)
+
         case TemplateDef():
             return _emit_template_header(node, ctx)
 

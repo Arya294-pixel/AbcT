@@ -177,6 +177,17 @@ class ClassDef(Node):
     private_methods: list[FuncDef]
     templates: list[TemplateDef]
 
+@frozendataclass
+class EnumAttr(Node):
+    name: Name
+    value: Expr|None
+
+@frozendataclass
+class EnumDef(Node):
+    name: Name
+    type: Type|None
+    body: list[EnumAttr]
+
 # for definations of templates
 @frozendataclass
 class TemplateDef(Node):

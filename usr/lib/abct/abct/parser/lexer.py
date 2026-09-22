@@ -9,7 +9,7 @@ class TokenType(Enum):
     RETURN = auto(); PASS = auto(); BREAK = auto()
     CONTINUE = auto(); TRUE = auto(); FALSE = auto()
     IMPORT = auto(); INCLUDE = auto();
-    CLASS = auto();
+    CLASS = auto(); ENUM = auto()
     PRIVATE = auto(); PUBLIC = auto()
     TEMPLATE = auto(); TYPENAME = auto()
     READONLY = auto()
@@ -63,7 +63,8 @@ class Lexer:
         "template":TokenType.TEMPLATE, "typename":TokenType.TYPENAME,
         "not":TokenType.NOT, "and": TokenType.AND, "or": TokenType.OR,
         "readonly": TokenType.READONLY, "const": TokenType.READONLY, 
-        "throw": TokenType.THROW, "try": TokenType.TRY, "catch": TokenType.CATCH
+        "throw": TokenType.THROW, "try": TokenType.TRY, "catch": TokenType.CATCH,
+        "enum": TokenType.ENUM
     }
 
     def __init__(self, source: str):
