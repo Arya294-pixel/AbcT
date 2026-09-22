@@ -1,4 +1,4 @@
-⁷77# abct/emit/cpp/classdunder.py
+# abct/emit/cpp/classdunder.py
 from __future__ import annotations
 
 from dataclasses import field, replace
